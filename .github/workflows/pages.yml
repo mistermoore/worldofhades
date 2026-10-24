@@ -12,7 +12,7 @@ jobs:
   build:
     runs-on: ubuntu-24.04
     env:
-      XDG_DATA_HOME: ${{ runner.temp }}/godot-data
+      XDG_DATA_HOME: /tmp/godot-data
     steps:
       - uses: actions/checkout@v4
       - name: Install verified Godot 4.6.3 and web templates
