@@ -15,7 +15,7 @@ scripts/dev.sh serve
 The server listens on port 8000. Serve the exported folder over HTTP; opening the HTML directly does not work. WebGL 2 is required. Install matching Godot web export templates before building. Cloud paths for writable Godot data and caches are configured in `scripts/dev.sh`.
 
 - Space: begin or resume. P or Escape: pause. Enemies wait while paused.
-- WASD: camera-relative movement. Hold right mouse and drag: camera orbit. Scroll: zoom. C: reset camera.
+- WASD: camera-relative movement. Hold right mouse and drag: camera orbit (cursor captured until release). Hold both mouse buttons: move forward while steering the camera. Release either to stop mouse-driven movement. Scroll: zoom. C: reset camera.
 - Tab: cycle living targets.
 - 1 — Strike: 18 damage, generates 15 Momentum, 2.8m range.
 - 2 — Cleave: 38 damage in a frontal cone, costs 30 Momentum, 4s cooldown.

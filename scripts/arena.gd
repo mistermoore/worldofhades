@@ -211,6 +211,7 @@ func _ready():
 
 
 func reset():
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	sim = Combat.new()
 	paused = true
 	started = false
@@ -223,6 +224,7 @@ func reset():
 func toggle_pause():
 	if sim.outcome != "": return
 	paused = not paused
+	if paused: Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	started = true
 
 func meter(canvas: CanvasLayer, pos: Vector2, color: Color, maximum: float) -> ProgressBar:
@@ -274,8 +276,24 @@ func floating_text(pos: Vector2, text: String, color: Color):
 	transient.append({"node":label,"remaining":1.2})
 
 
+func _input(event):
+	# Pause must work even while a mouse press has a HUD control focused.
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode in [KEY_SPACE,KEY_P,KEY_ESCAPE]:
+		toggle_pause()
+		get_viewport().set_input_as_handled()
+	# Releases must reach us even when the pointer is over a HUD control.
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_RIGHT and not event.pressed:
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+func _notification(what):
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT:
+		paused = true
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
 func _unhandled_input(event):
 	if event is InputEventMouseButton and event.pressed:
+		if event.button_index == MOUSE_BUTTON_RIGHT and not paused and sim.outcome == "":
+			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 		if event.button_index == MOUSE_BUTTON_WHEEL_UP: distance = maxf(10,distance-1)
 		if event.button_index == MOUSE_BUTTON_WHEEL_DOWN: distance = minf(22,distance+1)
 	if event is InputEventMouseMotion and Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
@@ -290,13 +308,16 @@ func _unhandled_input(event):
 			KEY_2: if not paused: sim.use_ability("cleave")
 			KEY_3: if not paused: sim.use_ability("charge")
 			KEY_R: reset()
-			KEY_SPACE, KEY_P, KEY_ESCAPE: toggle_pause()
 			KEY_C: yaw = 0; pitch = 0.75; distance = 15
 
 func _process(dt):
 	clock += dt
 	var input = Vector2(float(Input.is_physical_key_pressed(KEY_D))-float(Input.is_physical_key_pressed(KEY_A)),float(Input.is_physical_key_pressed(KEY_S))-float(Input.is_physical_key_pressed(KEY_W)))
+	# WoW-style mouse steering: both buttons act as forward, in camera space.
+	if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
+		input.y = -1
 	if not paused: sim.step(minf(dt,0.05),input.rotated(-yaw))
+	if sim.outcome != "": Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	hero.position = Vector3(sim.player.x,0,sim.player.y)
 	hero.rotation.y = atan2(-sim.facing.x,-sim.facing.y)
 	for event in sim.events:
@@ -356,11 +377,11 @@ func _process(dt):
 	intro.visible = paused and sim.outcome == ""
 	status.visible = not paused
 	warning.visible = not paused
-	intro_text.text = "THE ASHEN PROVING GROUNDS\n\nWASD moves relative to your camera.\nHold right mouse to look. Scroll to zoom. C resets view.\n\nTab selects a target. 3 charges into melee range.\nUse 1 twice to build Momentum, then 2 to Cleave.\nLeave red danger zones before the countdown ends.\n\nEnemies join gradually. P pauses whenever you need."
-	if started: intro_text.text = "PAUSED\n\nTake a breath. Nothing moves while paused.\n\n1: Strike builds Momentum   /   2: Cleave spends it\n3: Charge closes distance and interrupts\n\nWASD move   /   Hold right mouse to look\nScroll zoom   /   C resets view"
+	intro_text.text = "THE ASHEN PROVING GROUNDS\n\nWASD moves relative to your camera.\nHold both mouse buttons to run and steer.\nRight-drag looks. Scroll zooms. C resets view.\n\nTab selects a target. 3 charges into melee range.\nUse 1 twice to build Momentum, then 2 to Cleave.\nLeave red danger zones before the countdown ends.\n\nEnemies join gradually. P pauses whenever you need."
+	if started: intro_text.text = "PAUSED\n\nTake a breath. Nothing moves while paused.\n\n1: Strike builds Momentum   /   2: Cleave spends it\n3: Charge closes distance and interrupts\n\nWASD move   /   Both mouse buttons: run and steer\nScroll zoom   /   C resets view"
 	start_button.text = "Space  -  Resume" if started else "Space  -  Begin encounter"
 	hud.text = "WORLD OF HADES   /   THE ASHEN PROVING GROUNDS\nHealth %d / 160     •     Momentum %d / 100     •     Enemies %d / 3" % [sim.health,sim.momentum,sim.alive().size()]
-	status.text = (sim.outcome+"  ·  Press R to try again" if sim.outcome != "" else sim.message)+"\nWASD move   ·   Right mouse: camera   ·   Scroll: zoom   ·   P: pause   ·   1–3: abilities"
+	status.text = (sim.outcome+"  ·  Press R to try again" if sim.outcome != "" else sim.message)+"\nWASD move   ·   Both mouse buttons: run + steer   ·   Scroll: zoom   ·   P: pause   ·   1–3: abilities"
 	var ids = ["strike","cleave","charge"]
 	var descriptions = ["+15 Momentum · 2.8m","30 Momentum · frontal cone","13m · interrupt · 8s cooldown"]
 	for i in range(3):

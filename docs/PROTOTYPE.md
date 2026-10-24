@@ -26,3 +26,7 @@ The cloud Chromium smoke test is `node tests/browser_smoke.cjs` with the HTTP se
 ## Current validation result
 
 Godot 4.6.3 headless combat suite: 19 passed, 0 failed. Web export completed without errors. Chromium WebGL 2 smoke test passed all five rendered-state checks (ready screen, Charge engagement, Strike Momentum generation, reset, pause), with no browser runtime errors. Installation/build instructions were rerun successfully with retained templates. No multiplayer, human combat-feel, or 60 FPS claim is made.
+
+## Mouse steering
+
+Hold both mouse buttons to move forward relative to the camera while mouse movement steers it. Right-drag alone orbits without adding forward motion. Releasing either button stops mouse-driven movement; WASD remains available. Right-drag captures the pointer so the screen edge does not limit steering. Right-button release, pause, restart, focus loss, and encounter completion restore the cursor. `node tests/mouse_controls.cjs` checks mouse movement/release and pointer capture in Chromium against the running local server.
