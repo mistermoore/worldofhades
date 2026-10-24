@@ -8,8 +8,8 @@ The PRD is the product direction; this document records the first implemented sl
 - Basic Strike always generates Momentum. Cleave spends it; Charge is a free interrupt/reposition tool.
 - Attacks face the selected target when activated. Cleave checks range and a frontal dot-product cone.
 - Third-person orbit camera, camera-relative movement, bounded handcrafted arena.
-- Three enemies are initially active. No mandatory roles, account, preparation, or persistent power.
-- Visible cast countdowns and ground rings communicate attacks. Bruiser ring approximates its frontal danger zone; its actual hit uses the facing cone.
+- Space begins the encounter; P/Escape pauses. Enemy pressure is staggered at 0/10/18 seconds. No mandatory roles, account, preparation, or persistent power.
+- Filled ground telegraphs match the actual frontal cone and ground-blast radius. Cast labels name the attack and response; a HUD banner identifies immediate danger. Lower incoming damage, longer windups, and 20 health on enemy defeat support first-time learning.
 - Single-threaded web export avoids cross-origin isolation requirements. Browser testing uses Chromium software WebGL; it is not a representative hardware performance benchmark.
 - Combat logic is separate from rendering but currently runs locally. This is not server-authoritative multiplayer.
 
@@ -25,4 +25,4 @@ The cloud Chromium smoke test is `node tests/browser_smoke.cjs` with the HTTP se
 
 ## Current validation result
 
-Godot 4.6.3 headless combat suite: 14 passed, 0 failed. Web export completed without errors. Chromium WebGL 2 smoke test passed all four rendered-state checks (initial health, Charge interrupt, Strike Momentum generation, reset), with no browser runtime errors. Installation/build instructions were rerun successfully with retained templates. No multiplayer, human combat-feel, or 60 FPS claim is made.
+Godot 4.6.3 headless combat suite: 19 passed, 0 failed. Web export completed without errors. Chromium WebGL 2 smoke test passed all five rendered-state checks (ready screen, Charge engagement, Strike Momentum generation, reset, pause), with no browser runtime errors. Installation/build instructions were rerun successfully with retained templates. No multiplayer, human combat-feel, or 60 FPS claim is made.

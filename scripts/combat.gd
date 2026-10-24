@@ -13,14 +13,14 @@ var gcd := 0.0
 var cooldowns := {"strike": 0.0, "cleave": 0.0, "charge": 0.0}
 var enemies: Array = []
 var target := 0
-var message := "Prioritize the support. Charge interrupts spellcasts."
+var message := "Press 3 to charge the Ashguard, then 1 to build Momentum."
 var elapsed := 0.0
 var outcome := ""
 var events: Array = []
 
 func _init():
 	for spec in [["Ashguard", "bruiser", Vector2(-3,-2), 150.0], ["Ember Seer", "caster", Vector2(3,-5), 100.0], ["Cinder Acolyte", "support", Vector2(0,-8), 90.0]]:
-		enemies.append({"name":spec[0], "kind":spec[1], "pos":spec[2], "hp":spec[3], "max_hp":spec[3], "timer":2.0, "cast":0.0, "aim":Vector2.ZERO, "interrupted":0.0})
+		enemies.append({"name":spec[0], "kind":spec[1], "pos":spec[2], "hp":spec[3], "max_hp":spec[3], "active_at": {"bruiser":0.0,"caster":10.0,"support":18.0}[spec[1]], "timer":3.0, "cast":0.0, "aim":Vector2.ZERO, "interrupted":0.0})
 
 func alive() -> Array:
 	return enemies.filter(func(e): return e.hp > 0)
@@ -54,11 +54,12 @@ func use_ability(id: String) -> bool:
 	gcd = 1.0
 	cooldowns[id] = a.cooldown
 	if id == "charge":
+		var was_casting = e.cast > 0
 		player = e.pos-facing*1.6
 		e.cast = 0.0
 		e.timer = 3.0
-		e.interrupted = 1.0
-		message = "Charge! Target interrupted."
+		e.interrupted = 1.0 if was_casting else 0.0
+		message = "Charge! Target interrupted." if was_casting else "Charge! In melee range. Use 1 to build Momentum."
 	else:
 		message = "Strike: +15 Momentum" if id == "strike" else "Cleave: frontal area damage"
 	if id == "strike": momentum = minf(100, momentum+15)
@@ -67,6 +68,11 @@ func use_ability(id: String) -> bool:
 		var delta: Vector2 = victim.pos-player
 		if victim == e or (id == "cleave" and delta.length() <= a.range and facing.dot(delta.normalized()) > 0.35):
 			victim.hp = maxf(0, victim.hp-a.damage)
+			events.append({"kind":"enemy_hit", "pos":victim.pos, "amount":a.damage})
+			if victim.hp <= 0:
+				var restored = minf(20,160-health)
+				health += restored
+				if restored > 0: events.append({"kind":"recovery", "pos":player, "amount":restored})
 	events.append({"kind":id,"pos":player,"direction":facing})
 	if alive().is_empty(): outcome = "ENCOUNTER CLEARED"
 	return true
@@ -83,24 +89,41 @@ func step(dt: float, movement: Vector2):
 	for e in enemies:
 		if e.hp <= 0: continue
 		e.interrupted = maxf(0,e.interrupted-dt)
+		if elapsed < e.active_at and e.cast <= 0: continue
 		if e.cast > 0:
 			e.cast -= dt
 			if e.cast <= 0:
 				if e.kind == "bruiser":
 					var delta: Vector2 = player-e.pos
-					if delta.length() < 4.5 and delta.normalized().dot(e.aim) > 0.6: health -= 26
+					if delta.length() < 4.5 and delta.normalized().dot(e.aim) > 0.6: take_damage(16, "Ashguard frontal swing")
 				elif e.kind == "caster":
-					if player.distance_to(e.aim) < 2.6: health -= 24
+					if player.distance_to(e.aim) < 2.6: take_damage(14, "Ember Seer ground blast")
 				else:
-					for ally in alive(): ally.hp = minf(ally.max_hp,ally.hp+12)
-				e.timer = 3.5 if e.kind != "support" else 6.0
+					for ally in alive():
+						var restored = minf(8,ally.max_hp-ally.hp)
+						ally.hp += restored
+						if restored > 0: events.append({"kind":"enemy_heal", "pos":ally.pos,"amount":restored})
+				e.timer = 4.5 if e.kind != "support" else 7.0
 			continue
 		var offset: Vector2 = player-e.pos
 		if e.kind == "bruiser" and offset.length() > 2.3:
 			e.pos += offset.normalized()*2.1*dt
 		e.timer -= dt
 		if e.timer <= 0:
-			e.cast = 1.6 if e.kind != "support" else 2.2
+			e.cast = 2.4 if e.kind != "support" else 3.0
 			e.aim = offset.normalized() if e.kind == "bruiser" else player
 	health = maxf(0,health)
 	if health <= 0: outcome = "YOU HAVE FALLEN"
+
+func take_damage(amount: float, source: String):
+	health -= amount
+	message = "%s hit you for %d. Move out of the marked area." % [source,amount]
+	events.append({"kind":"player_hit", "pos":player,"amount":amount})
+
+func in_danger(e: Dictionary) -> bool:
+	if e.hp <= 0 or e.cast <= 0: return false
+	if e.kind == "caster": return player.distance_to(e.aim) < 2.6
+	if e.kind == "bruiser":
+		var offset: Vector2 = player-e.pos
+		return offset.length() < 4.5 and offset.normalized().dot(e.aim) > 0.6
+	return false

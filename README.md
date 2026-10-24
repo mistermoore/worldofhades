@@ -14,14 +14,19 @@ scripts/dev.sh serve
 
 The server listens on port 8000. Serve the exported folder over HTTP; opening the HTML directly does not work. WebGL 2 is required. Install matching Godot web export templates before building. Cloud paths for writable Godot data and caches are configured in `scripts/dev.sh`.
 
-- WASD: camera-relative movement. Hold right mouse and drag: camera orbit.
+- Space: begin or resume. P or Escape: pause. Enemies wait while paused.
+- WASD: camera-relative movement. Hold right mouse and drag: camera orbit. Scroll: zoom. C: reset camera.
 - Tab: cycle living targets.
 - 1 — Strike: 18 damage, generates 15 Momentum, 2.8m range.
 - 2 — Cleave: 38 damage in a frontal cone, costs 30 Momentum, 4s cooldown.
 - 3 — Charge: 12 damage, closes distance and interrupts, 13m range, 8s cooldown.
-- R or Restart: fresh encounter. All abilities trigger a 1s global cooldown.
+- R or Restart: return to the ready screen with a fresh encounter. All abilities trigger a 1s global cooldown.
 
-The Ashguard pursues and telegraphs a frontal attack: move behind it. The Ember Seer marks your location before an area blast: leave the circle or interrupt. The Cinder Acolyte heals surviving enemies: prioritize or interrupt it. Clear all three to win; zero health ends the encounter.
+The opening is staggered: Ashguard immediately, Ember Seer after 10 seconds, and Cinder Acolyte after 18 seconds. Each defeated enemy restores up to 20 health.
+
+The Ashguard pursues and telegraphs a frontal attack with a filled cone: move outside it or behind the enemy. Enemy casts give at least 2.4 seconds to respond. A banner warns when you are standing in danger. Health/Momentum bars, target distance, floating damage/healing, and a hit flash show what is happening.
+
+The Ember Seer marks your location before an area blast: leave the circle or interrupt. The Cinder Acolyte heals surviving enemies: prioritize or interrupt it. Clear all three to win; zero health ends the encounter.
 
 ## Architecture
 

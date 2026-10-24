@@ -33,11 +33,11 @@ func _initialize():
 	s.enemies[0].cast = 0.1
 	s.enemies[0].aim = Vector2(0,1)
 	s.step(0.2,Vector2.ZERO)
-	check(s.health == 134,"frontal attack damages inside cone")
+	check(s.health == 144,"frontal attack damages inside cone")
 	s.enemies[0].cast = 0.1
 	s.player = Vector2(0,-4)
 	s.step(0.2,Vector2.ZERO)
-	check(s.health == 134,"flanking avoids frontal attack")
+	check(s.health == 144,"flanking avoids frontal attack")
 	s.enemies[0].hp = 1
 	check(s.use_ability("strike") and s.outcome == "ENCOUNTER CLEARED","last kill ends encounter")
 	var hp = s.health
@@ -52,5 +52,23 @@ func _initialize():
 	s.enemies[1].aim = s.player
 	s.step(0.2,Vector2.ZERO)
 	check(s.outcome == "YOU HAVE FALLEN","lethal damage ends run")
+	s = Combat.new()
+	for i in range(80): s.step(0.1,Vector2.ZERO)
+	check(s.enemies[1].cast == 0 and s.enemies[1].timer == 3,"caster waits through staggered opening")
+	s = Combat.new()
+	s.enemies[0].hp = 1
+	s.health = 100
+	s.player = s.enemies[0].pos+Vector2(0,2)
+	s.use_ability("strike")
+	check(s.health == 120,"defeating an enemy restores health")
+	s = Combat.new()
+	s.enemies[1].cast = 2
+	s.enemies[1].aim = s.player
+	check(s.in_danger(s.enemies[1]),"warning detects ground blast danger")
+	s.player += Vector2(3,0)
+	check(not s.in_danger(s.enemies[1]),"leaving blast removes danger warning")
+	s = Combat.new()
+	s.step(1,Vector2(0,-1))
+	check(s.player == Vector2(0,2),"forward moves five metres per second")
 	print("Combat checks: %d passed, %d failed" % [checks-failures,failures])
 	quit(1 if failures else 0)
