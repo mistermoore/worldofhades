@@ -68,8 +68,36 @@ func character(color: Color) -> Node3D:
 	root.add_child(body)
 	body.position.y = 0.95
 	box(root,Vector3(0,1.7,-0.25),Vector3(0.5,0.16,0.25),Color("e8d5a2"))
-	box(root,Vector3(0.65,0.9,-0.3),Vector3(0.12,1.1,0.18),Color("b9c9cf"))
+	var sword = Node3D.new()
+	sword.name = "SwordPivot"
+	sword.position = Vector3(0.65,0.9,-0.3)
+	root.add_child(sword)
+	box(sword,Vector3(0,0.4,0),Vector3(0.14,1.1,0.18),Color("d9e5e9"))
+	box(sword,Vector3(0,-0.1,0),Vector3(0.4,0.1,0.22),Color("c8a36c"))
+	box(sword,Vector3(0,-0.27,0),Vector3(0.12,0.3,0.14),Color("69503a"))
 	return root
+
+func swing_sword(character_node: Node3D, heavy: bool = false):
+	var sword = character_node.get_node("SwordPivot")
+	sword.set_meta("swing_time",0.0)
+	sword.set_meta("swing_duration",0.55 if heavy else 0.42)
+
+func animate_sword(character_node: Node3D, dt: float):
+	var sword = character_node.get_node("SwordPivot")
+	if not sword.has_meta("swing_time"): return
+	var time: float = sword.get_meta("swing_time")+dt
+	var duration: float = sword.get_meta("swing_duration")
+	var progress = clampf(time/duration,0,1)
+	if progress < 0.25:
+		sword.rotation.x = lerpf(0,0.8,smoothstep(0,0.25,progress))
+	elif progress < 0.65:
+		sword.rotation.x = lerpf(0.8,-2.0,smoothstep(0.25,0.65,progress))
+	else:
+		sword.rotation.x = lerpf(-2.0,0,smoothstep(0.65,1,progress))
+	sword.set_meta("swing_time",time)
+	if progress >= 1:
+		sword.rotation = Vector3.ZERO
+		sword.remove_meta("swing_time")
 
 func _ready():
 	var env = WorldEnvironment.new()
@@ -221,6 +249,11 @@ func reset():
 	damage_flash = 0
 	for item in transient: item.node.queue_free()
 	transient.clear()
+	for actor in [hero]+foes:
+		var sword = actor.get_node("SwordPivot")
+		sword.rotation = Vector3.ZERO
+		if sword.has_meta("swing_time"): sword.remove_meta("swing_time")
+		actor.set_meta("last_cast",0.0)
 
 func toggle_pause():
 	if sim.outcome != "": return
@@ -339,7 +372,9 @@ func _process(dt):
 				floating_text(event.pos,"-%d HP"%event.amount,Color("ff8276"))
 			"recovery": floating_text(event.pos,"+%d HP"%event.amount,Color("7aefb6"))
 			"enemy_heal": floating_text(event.pos,"+%d"%event.amount,Color("7aefb6"))
-			_: flash = 0.2
+			"strike", "cleave", "charge":
+				flash = 0.2
+				swing_sword(hero,event.kind == "cleave")
 	for item in transient:
 		item.remaining -= dt
 		item.node.position.y += dt*0.8
@@ -353,9 +388,14 @@ func _process(dt):
 	sim.events.clear()
 	flash = maxf(0,flash-dt)
 	hero.scale = Vector3.ONE*(1.1 if flash > 0 else 1.0)
+	if not paused: animate_sword(hero,dt)
 	for i in range(foes.size()):
 		var e = sim.enemies[i]
 		var foe = foes[i]
+		if e.kind == "bruiser" and foe.get_meta("last_cast",0.0) > 0 and e.cast <= 0 and e.interrupted <= 0 and e.hp > 0:
+			swing_sword(foe,true)
+		foe.set_meta("last_cast",e.cast)
+		if not paused: animate_sword(foe,dt)
 		foe.visible = e.hp > 0
 		foe.position = Vector3(e.pos.x,0,e.pos.y)
 		var direction: Vector2 = sim.player-e.pos

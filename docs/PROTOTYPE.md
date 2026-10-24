@@ -44,3 +44,7 @@ W/S move forward/backward, Q/E strafe without changing facing, and A/D turn the 
 ## Deployment freshness
 
 GitHub Pages exports commit-specific JS, WASM and PCK filenames (`game-<sha>.*`). `scripts/prepare_web.py` checks that those assets exist, adds a visible build badge, and copies the generated HTML to the stable root index. This makes new HTML load new assets rather than reusing an earlier binary under the same filename. An already-open page must still reload; its build badge identifies the loaded version. The commit-specific HTML is also available for checking a particular deployment directly.
+
+## Placeholder sword animation
+
+Swords pivot at the grip through a short windup, downward slice, and recovery. Player Strike (including auto-Strike), Cleave, and Charge trigger the visual; Cleave has a longer swing. The Ashguard swings when its frontal attack resolves. Animation is presentation-only and does not change damage timing, range, or cooldowns. Pause freezes sword motion; restart returns weapons to rest.
