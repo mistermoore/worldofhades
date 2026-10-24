@@ -12,7 +12,13 @@ var momentum := 0.0
 var gcd := 0.0
 var cooldowns := {"strike": 0.0, "cleave": 0.0, "charge": 0.0}
 var enemies: Array = []
-var target := 0
+var auto_target := -1
+var auto_timer := 0.0
+var queued_ability := ""
+var target := 0:
+	set(value):
+		if value != target: stop_auto_attack()
+		target = value
 var message := "Press 3 to charge the Ashguard, then 1 to build Momentum."
 var elapsed := 0.0
 var outcome := ""
@@ -31,6 +37,27 @@ func cycle_target():
 		if enemies[candidate].hp > 0:
 			target = candidate
 			return
+
+func stop_auto_attack():
+	auto_target = -1
+	queued_ability = ""
+
+func toggle_auto_attack():
+	if auto_target != -1:
+		stop_auto_attack()
+		message = "Auto-attack off."
+	elif outcome == "" and enemies[target].hp > 0:
+		auto_target = target
+		auto_timer = 0.0
+		message = "Auto-attack on: %s. Shift+1 turns it off." % enemies[target].name
+
+func request_ability(id: String) -> bool:
+	# Reserve the next shared cooldown for a manual command before auto Strike.
+	if auto_target != -1 and id != "strike" and ABILITIES.has(id) and gcd > 0 and cooldowns[id] <= 0:
+		queued_ability = id
+		message = "%s queued for the next global cooldown." % id.capitalize()
+		return true
+	return use_ability(id)
 
 func use_ability(id: String) -> bool:
 	if outcome != "" or not ABILITIES.has(id): return false
@@ -62,7 +89,9 @@ func use_ability(id: String) -> bool:
 		message = "Charge! Target interrupted." if was_casting else "Charge! In melee range. Use 1 to build Momentum."
 	else:
 		message = "Strike: +15 Momentum" if id == "strike" else "Cleave: frontal area damage"
-	if id == "strike": momentum = minf(100, momentum+15)
+	if id == "strike":
+		momentum = minf(100, momentum+15)
+		auto_timer = 1.0
 	for victim in enemies:
 		if victim.hp <= 0: continue
 		var delta: Vector2 = victim.pos-player
@@ -74,6 +103,7 @@ func use_ability(id: String) -> bool:
 				health += restored
 				if restored > 0: events.append({"kind":"recovery", "pos":player, "amount":restored})
 	events.append({"kind":id,"pos":player,"direction":facing})
+	if auto_target != -1 and enemies[auto_target].hp <= 0: stop_auto_attack()
 	if alive().is_empty(): outcome = "ENCOUNTER CLEARED"
 	return true
 
@@ -114,6 +144,17 @@ func step(dt: float, movement: Vector2):
 			e.aim = offset.normalized() if e.kind == "bruiser" else player
 	health = maxf(0,health)
 	if health <= 0: outcome = "YOU HAVE FALLEN"
+	if outcome != "":
+		stop_auto_attack()
+		return
+	auto_timer = maxf(0,auto_timer-dt)
+	if auto_target != -1 and (auto_target != target or enemies[auto_target].hp <= 0): stop_auto_attack()
+	if queued_ability != "" and gcd <= 0:
+		var command = queued_ability
+		queued_ability = ""
+		use_ability(command)
+	elif auto_target != -1 and auto_timer <= 0 and gcd <= 0 and player.distance_to(enemies[auto_target].pos) <= ABILITIES.strike.range:
+		use_ability("strike")
 
 func take_damage(amount: float, source: String):
 	health -= amount

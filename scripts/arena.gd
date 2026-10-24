@@ -131,7 +131,7 @@ func _ready():
 	canvas.add_child(hud)
 	status = Label.new()
 	status.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
-	status.offset_top = -180
+	status.offset_top = -205
 	status.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	status.add_theme_font_size_override("font_size",18)
 	canvas.add_child(status)
@@ -145,7 +145,7 @@ func _ready():
 		b.custom_minimum_size = Vector2(195,75)
 		b.focus_mode = Control.FOCUS_NONE
 		b.pressed.connect(func():
-			if not paused: sim.use_ability(id))
+			if not paused: sim.request_ability(id))
 		bar.add_child(b)
 		buttons.append(b)
 	var restart = Button.new()
@@ -277,6 +277,9 @@ func floating_text(pos: Vector2, text: String, color: Color):
 
 
 func _input(event):
+	if event is InputEventKey and event.pressed and not event.echo and event.shift_pressed and event.physical_keycode == KEY_1:
+		if not paused: sim.toggle_auto_attack()
+		get_viewport().set_input_as_handled()
 	# Pause must work even while a mouse press has a HUD control focused.
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode in [KEY_SPACE,KEY_P,KEY_ESCAPE]:
 		toggle_pause()
@@ -304,9 +307,12 @@ func _unhandled_input(event):
 			KEY_TAB:
 				sim.cycle_target()
 				get_viewport().set_input_as_handled()
-			KEY_1: if not paused: sim.use_ability("strike")
-			KEY_2: if not paused: sim.use_ability("cleave")
-			KEY_3: if not paused: sim.use_ability("charge")
+			KEY_1:
+				if not paused:
+					if event.shift_pressed: sim.toggle_auto_attack()
+					else: sim.use_ability("strike")
+			KEY_2: if not paused: sim.request_ability("cleave")
+			KEY_3: if not paused: sim.request_ability("charge")
 			KEY_R: reset()
 			KEY_C: yaw = 0; pitch = 0.75; distance = 15
 
@@ -377,14 +383,17 @@ func _process(dt):
 	intro.visible = paused and sim.outcome == ""
 	status.visible = not paused
 	warning.visible = not paused
-	intro_text.text = "THE ASHEN PROVING GROUNDS\n\nWASD moves relative to your camera.\nHold both mouse buttons to run and steer.\nRight-drag looks. Scroll zooms. C resets view.\n\nTab selects a target. 3 charges into melee range.\nUse 1 twice to build Momentum, then 2 to Cleave.\nLeave red danger zones before the countdown ends.\n\nEnemies join gradually. P pauses whenever you need."
+	intro_text.text = "THE ASHEN PROVING GROUNDS\n\nWASD moves relative to your camera.\nHold both mouse buttons to run and steer.\nRight-drag looks. Scroll zooms. C resets view.\n\nTab selects a target. 3 charges into melee range.\n1: Strike. Shift+1: toggle auto-Strike on this target.\nUse 2 to spend Momentum on Cleave.\nLeave red danger zones before the countdown ends.\n\nEnemies join gradually. P pauses whenever you need."
 	if started: intro_text.text = "PAUSED\n\nTake a breath. Nothing moves while paused.\n\n1: Strike builds Momentum   /   2: Cleave spends it\n3: Charge closes distance and interrupts\n\nWASD move   /   Both mouse buttons: run and steer\nScroll zoom   /   C resets view"
 	start_button.text = "Space  -  Resume" if started else "Space  -  Begin encounter"
 	hud.text = "WORLD OF HADES   /   THE ASHEN PROVING GROUNDS\nHealth %d / 160     •     Momentum %d / 100     •     Enemies %d / 3" % [sim.health,sim.momentum,sim.alive().size()]
-	status.text = (sim.outcome+"  ·  Press R to try again" if sim.outcome != "" else sim.message)+"\nWASD move   ·   Both mouse buttons: run + steer   ·   Scroll: zoom   ·   P: pause   ·   1–3: abilities"
+	var auto_status = "Auto-attack OFF  |  Shift+1: enable on selected target"
+	if sim.auto_target != -1:
+		auto_status = "Auto-attack ON: %s%s" % [target.name," - move into melee range" if sim.player.distance_to(target.pos)>2.8 else ""]
+	status.text = auto_status+"\n"+(sim.outcome+"  ·  Press R to try again" if sim.outcome != "" else sim.message)+"\nWASD move   ·   Both mouse buttons: run + steer   ·   Scroll: zoom   ·   P: pause   ·   1–3: abilities"
 	var ids = ["strike","cleave","charge"]
-	var descriptions = ["+15 Momentum · 2.8m","30 Momentum · frontal cone","13m · interrupt · 8s cooldown"]
+	var descriptions = ["Shift+1: auto on/off","30 Momentum · frontal cone","13m · interrupt · 8s cooldown"]
 	for i in range(3):
 		var cd: float = maxf(sim.gcd,sim.cooldowns[ids[i]])
 		buttons[i].text = "%d  %s%s\n%s" % [i+1,ids[i].capitalize(),("  %.1fs"%cd) if cd>0 else "",descriptions[i]]
-		buttons[i].disabled = paused or cd>0 or sim.outcome != "" or (i==1 and sim.momentum<30)
+		buttons[i].disabled = paused or (cd>0 and not (sim.auto_target != -1 and i>0 and sim.cooldowns[ids[i]]<=0)) or sim.outcome != "" or (i==1 and sim.momentum<30)
