@@ -39,7 +39,6 @@ jobs:
           test -s build/web/index.html
           test -s build/web/index.wasm
           touch build/web/.nojekyll
-      - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
           path: build/web
@@ -53,6 +52,7 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      - uses: actions/configure-pages@v5
       - name: Deploy demo
         id: deployment
         uses: actions/deploy-pages@v4
