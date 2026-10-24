@@ -5,8 +5,8 @@ var hero: Node3D
 var foes: Array = []
 var camera: Camera3D
 var yaw := 0.0
-var pitch := 0.75
-var distance := 15.0
+var pitch := 0.35
+var distance := 7.5
 var paused := true
 var started := false
 var intro: PanelContainer
@@ -216,7 +216,8 @@ func reset():
 	paused = true
 	started = false
 	yaw = 0
-	pitch = 0.75
+	pitch = 0.35
+	distance = 7.5
 	damage_flash = 0
 	for item in transient: item.node.queue_free()
 	transient.clear()
@@ -297,11 +298,11 @@ func _unhandled_input(event):
 	if event is InputEventMouseButton and event.pressed:
 		if event.button_index == MOUSE_BUTTON_RIGHT and not paused and sim.outcome == "":
 			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
-		if event.button_index == MOUSE_BUTTON_WHEEL_UP: distance = maxf(10,distance-1)
-		if event.button_index == MOUSE_BUTTON_WHEEL_DOWN: distance = minf(22,distance+1)
+		if event.button_index == MOUSE_BUTTON_WHEEL_UP: distance = maxf(4,distance-0.75)
+		if event.button_index == MOUSE_BUTTON_WHEEL_DOWN: distance = minf(18,distance+0.75)
 	if event is InputEventMouseMotion and Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
 		yaw -= event.relative.x*0.005
-		pitch = clampf(pitch+event.relative.y*0.003,0.2,1.1)
+		pitch = clampf(pitch+event.relative.y*0.003,-0.05,0.95)
 	if event is InputEventKey and event.pressed and not event.echo:
 		match event.keycode:
 			KEY_TAB:
@@ -314,18 +315,22 @@ func _unhandled_input(event):
 			KEY_2: if not paused: sim.request_ability("cleave")
 			KEY_3: if not paused: sim.request_ability("charge")
 			KEY_R: reset()
-			KEY_C: yaw = 0; pitch = 0.75; distance = 15
+			KEY_C: yaw = 0; pitch = 0.35; distance = 7.5
 
 func _process(dt):
 	clock += dt
-	var input = Vector2(float(Input.is_physical_key_pressed(KEY_D))-float(Input.is_physical_key_pressed(KEY_A)),float(Input.is_physical_key_pressed(KEY_S))-float(Input.is_physical_key_pressed(KEY_W)))
+	var input = Vector2(float(Input.is_physical_key_pressed(KEY_E))-float(Input.is_physical_key_pressed(KEY_Q)),float(Input.is_physical_key_pressed(KEY_S))-float(Input.is_physical_key_pressed(KEY_W)))
+	if not paused and sim.outcome == "":
+		var turn = float(Input.is_physical_key_pressed(KEY_A))-float(Input.is_physical_key_pressed(KEY_D))
+		yaw += turn*1.8*minf(dt,0.05)
 	# WoW-style mouse steering: both buttons act as forward, in camera space.
 	if Input.is_mouse_button_pressed(MOUSE_BUTTON_LEFT) and Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT):
 		input.y = -1
 	if not paused: sim.step(minf(dt,0.05),input.rotated(-yaw))
 	if sim.outcome != "": Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	hero.position = Vector3(sim.player.x,0,sim.player.y)
-	hero.rotation.y = atan2(-sim.facing.x,-sim.facing.y)
+	hero.rotation.y = yaw
+	sim.facing = Vector2(0,-1).rotated(-yaw)
 	for event in sim.events:
 		match event.kind:
 			"enemy_hit": floating_text(event.pos,"-%d"%event.amount,Color("ffe0a4"))
@@ -368,8 +373,11 @@ func _process(dt):
 	var target = sim.enemies[sim.target]
 	ring.visible = target.hp > 0
 	ring.position = Vector3(target.pos.x,0.15,target.pos.y)
-	camera.position = hero.position+Vector3(sin(yaw)*distance*cos(pitch),distance*sin(pitch)+2,cos(yaw)*distance*cos(pitch))
-	camera.look_at(hero.position+Vector3(0,1,0))
+	var shoulder = Vector3(cos(yaw),0,-sin(yaw))
+	var forward = Vector3(-sin(yaw),0,-cos(yaw))
+	var pivot = hero.position+Vector3(0,1.6,0)
+	camera.position = pivot+shoulder*1.1+Vector3(sin(yaw)*distance*cos(pitch),distance*sin(pitch),cos(yaw)*distance*cos(pitch))
+	camera.look_at(pivot+forward*3.0+shoulder*0.6)
 	hp_bar.value = sim.health
 	resource_bar.value = sim.momentum
 	target_info.text = "TARGET: %s  %d / %d\nDistance %.1fm" % [target.name,target.hp,target.max_hp,sim.player.distance_to(target.pos)]
@@ -383,14 +391,14 @@ func _process(dt):
 	intro.visible = paused and sim.outcome == ""
 	status.visible = not paused
 	warning.visible = not paused
-	intro_text.text = "THE ASHEN PROVING GROUNDS\n\nWASD moves relative to your camera.\nHold both mouse buttons to run and steer.\nRight-drag looks. Scroll zooms. C resets view.\n\nTab selects a target. 3 charges into melee range.\n1: Strike. Shift+1: toggle auto-Strike on this target.\nUse 2 to spend Momentum on Cleave.\nLeave red danger zones before the countdown ends.\n\nEnemies join gradually. P pauses whenever you need."
-	if started: intro_text.text = "PAUSED\n\nTake a breath. Nothing moves while paused.\n\n1: Strike builds Momentum   /   2: Cleave spends it\n3: Charge closes distance and interrupts\n\nWASD move   /   Both mouse buttons: run and steer\nScroll zoom   /   C resets view"
+	intro_text.text = "THE ASHEN PROVING GROUNDS\n\nW/S: forward/back. Q/E: strafe. A/D: turn.\nHold both mouse buttons to run and steer.\nRight-drag looks. Scroll zooms. C resets view.\n\nTab selects a target. 3 charges into melee range.\n1: Strike. Shift+1: toggle auto-Strike on this target.\nUse 2 to spend Momentum on Cleave.\nLeave red danger zones before the countdown ends.\n\nEnemies join gradually. P pauses whenever you need."
+	if started: intro_text.text = "PAUSED\n\nTake a breath. Nothing moves while paused.\n\n1: Strike builds Momentum   /   2: Cleave spends it\n3: Charge closes distance and interrupts\n\nW/S move   /   Q/E strafe   /   A/D turn\nScroll zoom   /   C resets view"
 	start_button.text = "Space  -  Resume" if started else "Space  -  Begin encounter"
 	hud.text = "WORLD OF HADES   /   THE ASHEN PROVING GROUNDS\nHealth %d / 160     •     Momentum %d / 100     •     Enemies %d / 3" % [sim.health,sim.momentum,sim.alive().size()]
 	var auto_status = "Auto-attack OFF  |  Shift+1: enable on selected target"
 	if sim.auto_target != -1:
 		auto_status = "Auto-attack ON: %s%s" % [target.name," - move into melee range" if sim.player.distance_to(target.pos)>2.8 else ""]
-	status.text = auto_status+"\n"+(sim.outcome+"  ·  Press R to try again" if sim.outcome != "" else sim.message)+"\nWASD move   ·   Both mouse buttons: run + steer   ·   Scroll: zoom   ·   P: pause   ·   1–3: abilities"
+	status.text = auto_status+"\n"+(sim.outcome+"  ·  Press R to try again" if sim.outcome != "" else sim.message)+"\nW/S move   ·   Q/E strafe   ·   A/D turn   ·   Both mouse: run + steer   ·   Scroll: zoom   ·   P: pause   ·   1–3: abilities"
 	var ids = ["strike","cleave","charge"]
 	var descriptions = ["Shift+1: auto on/off","30 Momentum · frontal cone","13m · interrupt · 8s cooldown"]
 	for i in range(3):

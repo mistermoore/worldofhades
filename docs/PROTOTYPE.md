@@ -7,7 +7,7 @@ The PRD is the product direction; this document records the first implemented sl
 - Fixed 1-second global cooldown. Optional target-bound auto-Strike on Shift+1; manual Strike remains available. No universal dodge.
 - Basic Strike always generates Momentum. Cleave spends it; Charge is a free interrupt/reposition tool.
 - Attacks face the selected target when activated. Cleave checks range and a frontal dot-product cone.
-- Third-person orbit camera, camera-relative movement, bounded handcrafted arena.
+- Third-person shoulder camera with mouse orbit, W/S forward/back, Q/E strafe, A/D turn, and a bounded handcrafted arena.
 - Space begins the encounter; P/Escape pauses. Enemy pressure is staggered at 0/10/18 seconds. No mandatory roles, account, preparation, or persistent power.
 - Filled ground telegraphs match the actual frontal cone and ground-blast radius. Cast labels name the attack and response; a HUD banner identifies immediate danger. Lower incoming damage, longer windups, and 20 health on enemy defeat support first-time learning.
 - Single-threaded web export avoids cross-origin isolation requirements. Browser testing uses Chromium software WebGL; it is not a representative hardware performance benchmark.
@@ -36,3 +36,7 @@ Hold both mouse buttons to move forward relative to the camera while mouse movem
 Shift+1 toggles auto-Strike for the selected enemy. Automatic Strikes use the same range, damage, Momentum generation, and shared cooldown as manual Strike, at most once per second. Target changes, target death, player death, and restart cancel auto mode. Out-of-range attacks wait without chasing. Pause suspends simulation, retaining the selected auto target for resume. Manual Cleave/Charge requests during auto mode reserve the next available global cooldown rather than losing to the automatic attack.
 
 Auto-attack validation: 29 headless combat checks pass, including automatic cadence, manual ability priority, target changes, out-of-range waiting, toggle-off, and target death. Chromium checks confirmed Shift+1 toggles, automatic Momentum generation, target-switch cancellation, and no browser runtime errors (`node tests/auto_attack.cjs`).
+
+## Keyboard movement and shoulder camera
+
+W/S move forward/backward, Q/E strafe without changing facing, and A/D turn the character and camera together. Mouse steering remains available. The default camera is 7.5 metres back with a lower pitch, a right-shoulder offset, and a forward-looking aim point. Scroll adjusts distance; C and restart restore the default view. Headless movement tests exercise the actual key events, turn direction, position, strafe facing, pause, and shoulder placement. They run alongside combat tests locally and in the Pages build.

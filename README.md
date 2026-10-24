@@ -15,7 +15,7 @@ scripts/dev.sh serve
 The server listens on port 8000. Serve the exported folder over HTTP; opening the HTML directly does not work. WebGL 2 is required. Install matching Godot web export templates before building. Cloud paths for writable Godot data and caches are configured in `scripts/dev.sh`.
 
 - Space: begin or resume. P or Escape: pause. Enemies wait while paused.
-- WASD: camera-relative movement. Hold right mouse and drag: camera orbit (cursor captured until release). Hold both mouse buttons: move forward while steering the camera. Release either to stop mouse-driven movement. Scroll: zoom. C: reset camera.
+- W/S: forward/back. Q/E: strafe left/right without turning. A/D: turn left/right, with the camera following. Hold right mouse and drag: camera orbit (cursor captured until release). Hold both mouse buttons: move forward while steering the camera. Release either to stop mouse-driven movement. Scroll: zoom. C: reset the camera to its closer right-shoulder view.
 - Tab: cycle living targets.
 - Shift+1: toggle auto-Strike on the current target. It stops when you change targets or that enemy dies; it waits when out of melee range and never moves you. Manual Cleave/Charge take priority on the next shared cooldown. Pause suspends attacks; restart clears auto mode.
 - 1 — Strike: 18 damage, generates 15 Momentum, 2.8m range.
