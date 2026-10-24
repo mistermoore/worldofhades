@@ -34,3 +34,9 @@ Godot is selected over Bevy for this milestone because its integrated 3D editor,
 This is a solo, greybox combat prototype. Multiplayer, upgrades, complete dungeons, animation assets, audio, and performance targets remain unimplemented/unmeasured. Geometric characters deliberately keep the initial implementation independent of art assets. The next milestone should playtest combat feel, then introduce authoritative networking before expanding content.
 
 See `docs/PROTOTYPE.md` for decisions and validation.
+
+## Hosted demo
+
+Play at **https://mistermoore.github.io/worldofhades/** in a desktop browser with WebGL 2.
+
+Pushing to `main` runs `.github/workflows/pages.yml`: it installs checksum-verified Godot 4.6.3, runs combat tests, exports the release browser build, and deploys to GitHub Pages. The workflow can also be started manually from GitHub Actions. The public demo is solo only; no accounts or backend services are needed. Check the workflow's deployment result before expecting an update to appear.

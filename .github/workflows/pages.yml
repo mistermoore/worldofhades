@@ -1,0 +1,58 @@
+name: Build and deploy browser demo
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: github-pages
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    env:
+      XDG_DATA_HOME: ${{ runner.temp }}/godot-data
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install verified Godot 4.6.3 and web templates
+        shell: bash
+        run: |
+          set -euo pipefail
+          base=https://github.com/godotengine/godot/releases/download/4.6.3-stable
+          curl -fL --retry 3 "$base/Godot_v4.6.3-stable_linux.x86_64.zip" -o /tmp/godot.zip
+          echo 'd0bc2113065e481c9c2c2b2c37daa4e8be3fe9e27f0ab9ab0b6096e9a37907f3  /tmp/godot.zip' | sha256sum --check
+          unzip -q /tmp/godot.zip -d /tmp/godot-bin
+          echo /tmp/godot-bin >> "$GITHUB_PATH"
+          mv /tmp/godot-bin/Godot_v4.6.3-stable_linux.x86_64 /tmp/godot-bin/godot
+          chmod +x /tmp/godot-bin/godot
+          curl -fL --retry 3 "$base/Godot_v4.6.3-stable_export_templates.tpz" -o /tmp/templates.tpz
+          echo '3fbe2c0e2dec9d537ab9ec97bcf8da91dcf23357fc51f67092dd068d839290a8  /tmp/templates.tpz' | sha256sum --check
+          mkdir -p "$XDG_DATA_HOME/godot/export_templates/4.6.3.stable"
+          unzip -j -q /tmp/templates.tpz 'templates/web_nothreads_release.zip' -d "$XDG_DATA_HOME/godot/export_templates/4.6.3.stable"
+      - name: Test combat and export WebAssembly
+        run: |
+          godot --headless --path . --import --editor --quit
+          godot --headless --path . --script tests/combat_test.gd
+          mkdir -p build/web
+          godot --headless --path . --export-release Web build/web/index.html
+          test -s build/web/index.html
+          test -s build/web/index.wasm
+          touch build/web/.nojekyll
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: build/web
+  deploy:
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy demo
+        id: deployment
+        uses: actions/deploy-pages@v4
