@@ -36,9 +36,9 @@ jobs:
           godot --headless --path . --script tests/combat_test.gd
           godot --headless --path . --script tests/movement_test.gd
           mkdir -p build/web
-          godot --headless --path . --export-release Web build/web/index.html
-          test -s build/web/index.html
-          test -s build/web/index.wasm
+          version="${GITHUB_SHA::7}"
+          godot --headless --path . --export-release Web "build/web/game-$version.html"
+          python3 scripts/prepare_web.py "build/web/game-$version.html" "$version"
           touch build/web/.nojekyll
       - uses: actions/upload-pages-artifact@v3
         with:

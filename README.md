@@ -46,3 +46,5 @@ See `docs/PROTOTYPE.md` for decisions and validation.
 Play at **https://mistermoore.github.io/worldofhades/** in a desktop browser with WebGL 2.
 
 Pushing to `main` runs `.github/workflows/pages.yml`: it installs checksum-verified Godot 4.6.3, runs combat tests, exports the release browser build, and deploys to GitHub Pages. The workflow can also be started manually from GitHub Actions. The public demo is solo only; no accounts or backend services are needed. Check the workflow's deployment result before expecting an update to appear.
+
+Deployed game assets include the commit SHA in their filenames to keep browser caches from mixing old and new releases. A small build ID appears at the bottom right. If an already-open tab shows an older demo, reload it; use the current build ID to confirm the update. The stable entry page remains `index.html`.

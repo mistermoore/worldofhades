@@ -40,3 +40,7 @@ Auto-attack validation: 29 headless combat checks pass, including automatic cade
 ## Keyboard movement and shoulder camera
 
 W/S move forward/backward, Q/E strafe without changing facing, and A/D turn the character and camera together. Mouse steering remains available. The default camera is 7.5 metres back with a lower pitch, a right-shoulder offset, and a forward-looking aim point. Scroll adjusts distance; C and restart restore the default view. Headless movement tests exercise the actual key events, turn direction, position, strafe facing, pause, and shoulder placement. They run alongside combat tests locally and in the Pages build.
+
+## Deployment freshness
+
+GitHub Pages exports commit-specific JS, WASM and PCK filenames (`game-<sha>.*`). `scripts/prepare_web.py` checks that those assets exist, adds a visible build badge, and copies the generated HTML to the stable root index. This makes new HTML load new assets rather than reusing an earlier binary under the same filename. An already-open page must still reload; its build badge identifies the loaded version. The commit-specific HTML is also available for checking a particular deployment directly.
