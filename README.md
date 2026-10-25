@@ -17,7 +17,7 @@ The server listens on port 8000. Serve the exported folder over HTTP; opening th
 - Space: begin or resume. P or Escape: pause. Enemies wait while paused.
 - W/S: forward/back. Q/E: strafe left/right without turning. A/D: turn left/right, with the camera following. Hold right mouse and drag: camera orbit (cursor captured until release). Hold both mouse buttons: move forward while steering the camera. Release either to stop mouse-driven movement. Scroll: zoom. C: reset the camera to its closer right-shoulder view.
 - Tab: cycle living targets.
-- Shift+1: toggle auto-Strike on the current target. It stops when you change targets or that enemy dies; it waits when out of melee range and never moves you. Manual Cleave/Charge take priority on the next shared cooldown. Pause suspends attacks; restart clears auto mode.
+- Strike automatically attacks the selected living enemy once per second in melee range. Tab switches the automatic attack to your new target. It waits out of range without chasing, and stops when the selected enemy dies until you select another. Cleave, Charge, and the reward on 4 take priority on the next shared cooldown. Pause suspends attacks. No activation key is needed.
 - 1 — Strike: 18 damage, generates 15 Momentum, 2.8m range.
 - 2 — Cleave: 38 damage in a frontal cone, costs 30 Momentum, 4s cooldown.
 - 3 — Charge: 12 damage, closes distance and interrupts, 13m range, 8s cooldown.

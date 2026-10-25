@@ -22,13 +22,14 @@ var momentum := 0.0
 var gcd := 0.0
 var cooldowns := {"strike": 0.0, "cleave": 0.0, "charge": 0.0, "mend":0.0,"lightning":0.0,"rend":0.0}
 var enemies: Array = []
-var auto_target := -1
+var auto_target := 0
 var auto_timer := 0.0
 var queued_ability := ""
 var target := 0:
 	set(value):
-		if value != target: stop_auto_attack()
+		if value != target: queued_ability = ""
 		target = value
+		auto_target = value if outcome == "" and value >= 0 and value < enemies.size() and enemies[value].hp > 0 else -1
 var message := "Press 3 to charge the Ashguard, then 1 to build Momentum."
 var elapsed := 0.0
 var outcome := ""
@@ -56,6 +57,7 @@ func choose_reward(id: String) -> bool:
 	for ability in cooldowns: cooldowns[ability] = 0.0
 	elapsed = 0
 	outcome = ""
+	auto_target = target
 	events.clear()
 	message = "Reward unlocked: %s. Press 4 to use it." % REWARDS[id].name
 	return true
@@ -73,15 +75,6 @@ func cycle_target():
 func stop_auto_attack():
 	auto_target = -1
 	queued_ability = ""
-
-func toggle_auto_attack():
-	if auto_target != -1:
-		stop_auto_attack()
-		message = "Auto-attack off."
-	elif outcome == "" and enemies[target].hp > 0:
-		auto_target = target
-		auto_timer = 0.0
-		message = "Auto-attack on: %s. Shift+1 turns it off." % enemies[target].name
 
 func request_ability(id: String) -> bool:
 	# Reserve the next shared cooldown for a manual command before auto Strike.

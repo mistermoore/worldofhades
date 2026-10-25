@@ -9,7 +9,7 @@ async function sees(name,pattern){await page.screenshot({path:`/tmp/${name}.png`
 await page.keyboard.press('r');await page.waitForTimeout(150);await sees('hades-start',/Begin encounter/);
 await page.keyboard.press('Space');await page.waitForTimeout(150);
 await page.keyboard.press('3');await page.waitForTimeout(150);await sees('hades-charge',/Charge! (Target interrupted|In melee range)/);
-await page.waitForTimeout(3500);await page.keyboard.press('1');await page.waitForTimeout(150);await sees('hades-strike',/Momentum\s*15/);
+await page.waitForTimeout(3500);await page.waitForTimeout(150);await sees('hades-strike',/Momentum\s*[1-9]\d*/);
 await page.keyboard.press('r');await page.waitForTimeout(150);await sees('hades-reset',/Begin encounter/);
 await page.keyboard.press('Space');await page.waitForTimeout(150);
 await page.keyboard.press('p');await page.waitForTimeout(150);await sees('hades-paused',/PAUSED/);

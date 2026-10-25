@@ -4,7 +4,7 @@ The PRD is the product direction; this document records the first implemented sl
 
 ## Decisions
 
-- Fixed 1-second global cooldown. Optional target-bound auto-Strike on Shift+1; manual Strike remains available. No universal dodge.
+- Fixed 1-second global cooldown. Strike is automatic on the selected target in melee range. No universal dodge.
 - Basic Strike always generates Momentum. Cleave spends it; Charge is a free interrupt/reposition tool.
 - Attacks face the selected target when activated. Cleave checks range and a frontal dot-product cone.
 - Third-person shoulder camera with mouse orbit, W/S forward/back, Q/E strafe, A/D turn, and a bounded handcrafted arena.
@@ -31,11 +31,11 @@ Godot 4.6.3 headless combat suite: 29 passed, 0 failed. Web export completed wit
 
 Hold both mouse buttons to move forward relative to the camera while mouse movement steers it. Right-drag alone orbits without adding forward motion. Releasing either button stops mouse-driven movement; WASD remains available. Right-drag captures the pointer so the screen edge does not limit steering. Right-button release, pause, restart, focus loss, and encounter completion restore the cursor. `node tests/mouse_controls.cjs` checks mouse movement/release and pointer capture in Chromium against the running local server.
 
-## Auto-attack playtest option
+## Automatic basic attack
 
-Shift+1 toggles auto-Strike for the selected enemy. Automatic Strikes use the same range, damage, Momentum generation, and shared cooldown as manual Strike, at most once per second. Target changes, target death, player death, and restart cancel auto mode. Out-of-range attacks wait without chasing. Pause suspends simulation, retaining the selected auto target for resume. Manual Cleave/Charge requests during auto mode reserve the next available global cooldown rather than losing to the automatic attack.
+Strike automatically attacks the selected living enemy in melee range, at most once per second, generating Momentum. No activation key is needed. Changing targets arms Strike on the new target and clears queued manual actions; it does not reset the attack cadence. Out of range, it waits without chasing. After a kill, select another living enemy with Tab. Pause suspends simulation. Manual Cleave, Charge, and reward commands reserve the next shared cooldown before an automatic Strike.
 
-Auto-attack validation: 29 headless combat checks pass, including automatic cadence, manual ability priority, target changes, out-of-range waiting, toggle-off, and target death. Chromium checks confirmed Shift+1 toggles, automatic Momentum generation, target-switch cancellation, and no browser runtime errors (`node tests/auto_attack.cjs`).
+The combat suite checks automatic cadence, default activation, manual ability priority, target switching, range, and target death. `node tests/auto_attack.cjs` verifies Momentum generation without pressing 1, the new-target HUD state, and pause in Chromium.
 
 ## Keyboard movement and shoulder camera
 

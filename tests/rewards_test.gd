@@ -45,6 +45,7 @@ func run():
 	s = Combat.new()
 	win(s)
 	s.choose_reward("rend")
+	s.auto_target = -1 # Isolate bleed damage from automatic basic attacks.
 	s.player = s.enemies[0].pos+Vector2(0,2)
 	hp = s.enemies[0].hp
 	check(s.use_ability("rend") and s.enemies[0].hp == hp-18,"rend applies initial physical damage")

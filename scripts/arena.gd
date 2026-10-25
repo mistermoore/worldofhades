@@ -404,9 +404,6 @@ func floating_text(pos: Vector2, text: String, color: Color):
 
 
 func _input(event):
-	if event is InputEventKey and event.pressed and not event.echo and event.shift_pressed and event.physical_keycode == KEY_1:
-		if not paused: sim.toggle_auto_attack()
-		get_viewport().set_input_as_handled()
 	# Pause must work even while a mouse press has a HUD control focused.
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode in [KEY_SPACE,KEY_P,KEY_ESCAPE]:
 		toggle_pause()
@@ -436,8 +433,7 @@ func _unhandled_input(event):
 				get_viewport().set_input_as_handled()
 			KEY_1:
 				if not paused:
-					if event.shift_pressed: sim.toggle_auto_attack()
-					else: sim.use_ability("strike")
+					sim.use_ability("strike")
 			KEY_2: if not paused: sim.request_ability("cleave")
 			KEY_3: if not paused: sim.request_ability("charge")
 			KEY_4: if not paused and sim.reward != "": sim.request_ability(sim.reward)
@@ -551,17 +547,17 @@ func _process(dt):
 	intro.visible = paused and sim.outcome == ""
 	status.visible = not paused
 	warning.visible = not paused and sim.outcome == ""
-	intro_text.text = "THE ASHEN PROVING GROUNDS\n\nW/S: forward/back. Q/E: strafe. A/D: turn.\nHold both mouse buttons to run and steer.\nRight-drag looks. Scroll zooms. C resets view.\n\nTab selects a target. 3 charges into melee range.\n1: Strike. Shift+1: toggle auto-Strike on this target.\nUse 2 to spend Momentum on Cleave.\nLeave red danger zones before the countdown ends.\n\nEnemies join gradually. P pauses whenever you need."
-	if started: intro_text.text = "PAUSED\n\nTake a breath. Nothing moves while paused.\n\n1: Strike builds Momentum   /   2: Cleave spends it\n3: Charge closes distance and interrupts\n\nW/S move   /   Q/E strafe   /   A/D turn\nScroll zoom   /   C resets view"
+	intro_text.text = "THE ASHEN PROVING GROUNDS\n\nW/S: forward/back. Q/E: strafe. A/D: turn.\nHold both mouse buttons to run and steer.\nRight-drag looks. Scroll zooms. C resets view.\n\nTab selects a target. 3 charges into melee range.\nStrike attacks automatically when your target is in melee range.\nUse 2 to spend Momentum on Cleave.\nLeave red danger zones before the countdown ends.\n\nEnemies join gradually. P pauses whenever you need."
+	if started: intro_text.text = "PAUSED\n\nTake a breath. Nothing moves while paused.\n\nAutomatic Strike builds Momentum   /   2: Cleave spends it\n3: Charge closes distance and interrupts\n\nW/S move   /   Q/E strafe   /   A/D turn\nScroll zoom   /   C resets view"
 	if sim.reward != "" and not started: intro_text.text = "TRIAL 2 - REWARD UNLOCKED\n\n4: "+Combat.REWARDS[sim.reward].name+"\n"+Combat.REWARDS[sim.reward].description+"\n\nYour reward uses Momentum from Strikes.\nEnemies have 25% more health this time.\n\nSpace begins. P pauses. R starts a fresh run."
 	start_button.text = "Space  -  Resume" if started else "Space  -  Begin encounter"
 	hud.text = "WORLD OF HADES   /   TRIAL %d OF 2\nHealth %d / 160     •     Momentum %d / 100     •     Enemies %d / 3" % [sim.encounter,sim.health,sim.momentum,sim.alive().size()]
-	var auto_status = "Auto-attack OFF  |  Shift+1: enable on selected target"
+	var auto_status = "Strike: select a living target with Tab"
 	if sim.auto_target != -1:
-		auto_status = "Auto-attack ON: %s%s" % [target.name," - move into melee range" if sim.player.distance_to(target.pos)>2.8 else ""]
+		auto_status = "Automatic Strike: %s%s" % [target.name," - move into melee range" if sim.player.distance_to(target.pos)>2.8 else ""]
 	status.text = auto_status+"\n"+(sim.outcome+"  ·  Press R to try again" if sim.outcome != "" else sim.message)+"\nW/S move   ·   Q/E strafe   ·   A/D turn   ·   Both mouse: run + steer   ·   Scroll: zoom   ·   P: pause   ·   1–4: abilities"
 	var ids = ["strike","cleave","charge"]
-	var descriptions = ["Shift+1: auto on/off","30 Momentum · frontal cone","13m · interrupt · 8s cooldown"]
+	var descriptions = ["Automatic / +15 Momentum","30 Momentum · frontal cone","13m · interrupt · 8s cooldown"]
 	buttons[3].visible = sim.reward != ""
 	reward_bar.size.x = reward_bar.get_combined_minimum_size().x
 	reward_bar.position.x = (get_viewport().get_visible_rect().size.x-reward_bar.size.x)*0.5
@@ -570,5 +566,5 @@ func _process(dt):
 		descriptions.append("%d Momentum / %.0fs"%[Combat.ABILITIES[sim.reward].cost,Combat.ABILITIES[sim.reward].cooldown])
 	for i in range(ids.size()):
 		var cd: float = maxf(sim.gcd,sim.cooldowns[ids[i]])
-		buttons[i].text = "%d  %s%s\n%s" % [i+1,(Combat.REWARDS[ids[i]].name if ids[i] in Combat.REWARDS else ids[i].capitalize()),("  %.1fs"%cd) if cd>0 else "",descriptions[i]]
+		buttons[i].text = "%s  %s%s\n%s" % ["AUTO" if i == 0 else str(i+1),(Combat.REWARDS[ids[i]].name if ids[i] in Combat.REWARDS else ids[i].capitalize()),("  %.1fs"%cd) if cd>0 else "",descriptions[i]]
 		buttons[i].disabled = paused or (cd>0 and not (sim.auto_target != -1 and i>0 and sim.cooldowns[ids[i]]<=0)) or sim.outcome != "" or sim.momentum<Combat.ABILITIES[ids[i]].cost
