@@ -16,6 +16,9 @@ var warning: Label
 var target_info: Label
 var hp_bar: ProgressBar
 var resource_bar: ProgressBar
+var guard_label: Label
+var callout: Label
+var callout_time := 0.0
 var damage_overlay: ColorRect
 var damage_flash := 0.0
 var transient: Array = []
@@ -207,6 +210,11 @@ func _ready():
 	canvas.add_child(restart)
 	hp_bar = meter(canvas,Vector2(28,83),Color("65c19a"),160)
 	resource_bar = meter(canvas,Vector2(360,83),Color("e4b75f"),100)
+	guard_label = Label.new()
+	guard_label.position = Vector2(360,97)
+	guard_label.add_theme_font_size_override("font_size",13)
+	guard_label.add_theme_color_override("font_color",Color("8cdfff"))
+	canvas.add_child(guard_label)
 	target_info = Label.new()
 	target_info.position = Vector2(700,45)
 	target_info.add_theme_font_size_override("font_size",18)
@@ -221,6 +229,16 @@ func _ready():
 	warning.add_theme_constant_override("shadow_offset_x",2)
 	warning.add_theme_constant_override("shadow_offset_y",2)
 	canvas.add_child(warning)
+	callout = Label.new()
+	callout.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	callout.offset_top = 175
+	callout.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	callout.add_theme_font_size_override("font_size",26)
+	callout.add_theme_color_override("font_color",Color("a9dfff"))
+	callout.add_theme_color_override("font_shadow_color",Color.BLACK)
+	callout.add_theme_constant_override("shadow_offset_x",2)
+	callout.add_theme_constant_override("shadow_offset_y",2)
+	canvas.add_child(callout)
 	damage_overlay = ColorRect.new()
 	damage_overlay.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	damage_overlay.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -296,6 +314,7 @@ func reset():
 	pitch = 0.35
 	distance = 7.5
 	damage_flash = 0
+	callout_time = 0
 	for item in transient: item.node.queue_free()
 	transient.clear()
 	for effect in effects: effect.node.queue_free()
@@ -308,6 +327,7 @@ func reset():
 
 func select_reward(id: String):
 	if not sim.choose_reward(id): return
+	callout_time = 0
 	paused = true
 	started = false
 	yaw = 0
@@ -390,7 +410,7 @@ func telegraph(kind: String) -> MeshInstance3D:
 	add_child(mesh)
 	return mesh
 
-func floating_text(pos: Vector2, text: String, color: Color):
+func floating_text(pos: Vector2, text: String, color: Color, height: float = 2.4):
 	var label = Label3D.new()
 	label.text = text
 	label.font_size = 52
@@ -399,7 +419,7 @@ func floating_text(pos: Vector2, text: String, color: Color):
 	label.no_depth_test = true
 	label.modulate = color
 	add_child(label)
-	label.position = Vector3(pos.x,2.4,pos.y)
+	label.position = Vector3(pos.x,height,pos.y)
 	transient.append({"node":label,"remaining":1.2})
 
 
@@ -458,14 +478,28 @@ func _process(dt):
 		match event.kind:
 			"enemy_hit": floating_text(event.pos,"-%d"%event.amount,Color("ff8276") if event.get("source","") == "bleed" else Color("ffe0a4"))
 			"player_hit":
-				damage_flash = 0.5
+				damage_flash = 0.5 if event.get("special",false) else 0.08
 				floating_text(event.pos,"-%d HP"%event.amount,Color("ff8276"))
 			"recovery": floating_text(event.pos,"+%d HP"%event.amount,Color("7aefb6"))
 			"enemy_heal": floating_text(event.pos,"+%d"%event.amount,Color("7aefb6"))
+			"guard": floating_text(event.pos,"GUARD %d"%event.amount,Color("8cdfff"))
+			"combo":
+				floating_text(event.pos,event.label,Color("c9aeff"),3.8)
+				callout.text = "TECH BURST!  +24 area damage" if event.label == "TECH BURST" else "RUPTURE!  +26 finisher damage"
+				callout_time = 1.8
+				pulse(event.pos,Color("a3bbff"))
+			"enemy_basic":
+				if event.enemy_kind == "bruiser": swing_sword(foes[0])
+				else:
+					var bolt = make_beam(Color("e9a46d"),0.035)
+					place_beam(bolt,Vector3(event.pos.x,1.2,event.pos.y),hero.position+Vector3(0,1.0,0))
+					effects.append({"node":bolt,"remaining":0.18,"duration":0.18,"pulse":false})
 			"mend": pulse(event.pos,Color("69e8ac"))
 			"lightning": lightning(event.pos,event.target_pos)
 			"interrupt":
-				floating_text(event.pos,"INTERRUPTED!",Color("97e7ff"))
+				floating_text(event.pos,"INTERRUPTED!",Color("97e7ff"),3.8)
+				callout.text = "INTERRUPTED!  Exposed: +25% damage for 3s"
+				callout_time = 1.8
 				pulse(event.pos,Color("97e7ff"))
 			"enemy_cast":
 				pulse(event.aim if event.enemy_kind == "caster" else event.pos,Color("ff944c") if event.enemy_kind != "support" else Color("6ce6a4"))
@@ -487,6 +521,8 @@ func _process(dt):
 		if effects[i].remaining <= 0:
 			effects[i].node.queue_free()
 			effects.remove_at(i)
+	if not paused: callout_time = maxf(0,callout_time-dt)
+	callout.visible = callout_time > 0 and not paused
 	damage_flash = maxf(0,damage_flash-dt)
 	damage_overlay.color = Color(0.8,0.05,0.02,damage_flash*0.35)
 	sim.events.clear()
@@ -510,9 +546,10 @@ func _process(dt):
 		if e.cast > 0 and e.kind == "bruiser": direction = e.aim
 		foe.rotation.y = atan2(-direction.x,-direction.y)
 		var label: Label3D = foe.get_child(3)
-		var cast_name = {"bruiser":"FRONTAL SWING - move behind", "caster":"GROUND BLAST - leave the circle", "support":"HEALING ALLIES - interrupt with 3"}[e.kind]
+		var cast_name = {"bruiser":"HEAVY SWING - interrupt or move", "caster":"HEAVY BLAST - interrupt or move", "support":"HEALING ALLIES - interrupt with 3"}[e.kind]
 		var state = ("%s  %.1fs"%[cast_name,e.cast]) if e.cast>0 else ("INTERRUPTED" if e.interrupted>0 else ("WATCHING" if sim.elapsed<e.active_at else e.kind.to_upper()))
 		if e.vulnerable > 0: state = "EXPOSED +25% DAMAGE %.1fs"%e.vulnerable
+		if e.shocked > 0: state += " / PRIMED: Charge or Cleave"
 		if e.bleed > 0: state += "  / BLEED %.1fs"%e.bleed
 		label.text = "%s  %d/%d\n%s" % [e.name,e.hp,e.max_hp,state]
 		markers[i].visible = e.hp > 0 and e.cast > 0
@@ -535,8 +572,11 @@ func _process(dt):
 	camera.look_at(pivot+forward*3.0+shoulder*0.6)
 	hp_bar.value = sim.health
 	resource_bar.value = sim.momentum
+	guard_label.text = "GUARD %d  |  %.1fs"%[sim.guard,sim.guard_time] if sim.guard > 0 else ""
 	target_info.text = "TARGET: %s  %d / %d\nDistance %.1fm" % [target.name,target.hp,target.max_hp,sim.player.distance_to(target.pos)]
-	warning.text = "Defeat all three enemies. Each defeat restores 20 health."
+	warning.text = "Hold your ground. Basic hits are expected; interrupt or move for HEAVY attacks."
+	if target.shocked > 0: warning.text = "PRIMED: Charge (3) or Cleave (2) triggers a tech burst"
+	elif target.bleed > 0: warning.text = "BLEEDING: Cleave (2) ruptures bleed for an immediate burst"
 	for e in sim.enemies:
 		if e.hp <= 0 or e.cast <= 0: continue
 		if sim.in_danger(e):
@@ -547,17 +587,18 @@ func _process(dt):
 	intro.visible = paused and sim.outcome == ""
 	status.visible = not paused
 	warning.visible = not paused and sim.outcome == ""
-	intro_text.text = "THE ASHEN PROVING GROUNDS\n\nW/S: forward/back. Q/E: strafe. A/D: turn.\nHold both mouse buttons to run and steer.\nRight-drag looks. Scroll zooms. C resets view.\n\nTab selects a target. 3 charges into melee range.\nStrike attacks automatically when your target is in melee range.\nUse 2 to spend Momentum on Cleave.\nLeave red danger zones before the countdown ends.\n\nEnemies join gradually. P pauses whenever you need."
-	if started: intro_text.text = "PAUSED\n\nTake a breath. Nothing moves while paused.\n\nAutomatic Strike builds Momentum   /   2: Cleave spends it\n3: Charge closes distance and interrupts\n\nW/S move   /   Q/E strafe   /   A/D turn\nScroll zoom   /   C resets view"
+	intro_text.text = "THE ASHEN PROVING GROUNDS\n\nW/S: forward/back. Q/E: strafe. A/D: turn.\nHold both mouse buttons to run and steer.\nRight-drag looks. Scroll zooms. C resets view.\n\nTab selects a target. 3 charges into melee range.\nStrike attacks automatically when your target is in melee range.\nUse 2 to spend Momentum on Cleave.\nEat the small hits. Interrupt or move for HEAVY attacks.\n\nEnemies join gradually. P pauses whenever you need."
+	if started: intro_text.text = "PAUSED\n\nTake a breath. Nothing moves while paused.\n\nAutomatic Strike builds Momentum. 2: Cleave spends it.\n3: Charge interrupts, even during power cooldowns.\n\nW/S move   /   Q/E strafe   /   A/D turn\nScroll zoom   /   C resets view"
 	if sim.reward != "" and not started: intro_text.text = "TRIAL 2 - REWARD UNLOCKED\n\n4: "+Combat.REWARDS[sim.reward].name+"\n"+Combat.REWARDS[sim.reward].description+"\n\nYour reward uses Momentum from Strikes.\nEnemies have 25% more health this time.\n\nSpace begins. P pauses. R starts a fresh run."
 	start_button.text = "Space  -  Resume" if started else "Space  -  Begin encounter"
 	hud.text = "WORLD OF HADES   /   TRIAL %d OF 2\nHealth %d / 160     •     Momentum %d / 100     •     Enemies %d / 3" % [sim.encounter,sim.health,sim.momentum,sim.alive().size()]
 	var auto_status = "Strike: select a living target with Tab"
 	if sim.auto_target != -1:
 		auto_status = "Automatic Strike: %s%s" % [target.name," - move into melee range" if sim.player.distance_to(target.pos)>2.8 else ""]
+	if sim.outcome != "": auto_status = "Basic damage %.0f | Heavy damage %.0f | Interrupts %d | Combos %d"%[sim.stats.basic_damage,sim.stats.special_damage,sim.stats.interrupts,sim.stats.combos]
 	status.text = auto_status+"\n"+(sim.outcome+"  ·  Press R to try again" if sim.outcome != "" else sim.message)+"\nW/S move   ·   Q/E strafe   ·   A/D turn   ·   Both mouse: run + steer   ·   Scroll: zoom   ·   P: pause   ·   1–4: abilities"
 	var ids = ["strike","cleave","charge"]
-	var descriptions = ["Automatic / +15 Momentum","30 Momentum · frontal cone","13m · interrupt · 8s cooldown"]
+	var descriptions = ["Automatic / +15 Momentum","30 Momentum · frontal cone","Interrupt / 13m / 8s"]
 	buttons[3].visible = sim.reward != ""
 	reward_bar.size.x = reward_bar.get_combined_minimum_size().x
 	reward_bar.position.x = (get_viewport().get_visible_rect().size.x-reward_bar.size.x)*0.5
@@ -565,6 +606,6 @@ func _process(dt):
 		ids.append(sim.reward)
 		descriptions.append("%d Momentum / %.0fs"%[Combat.ABILITIES[sim.reward].cost,Combat.ABILITIES[sim.reward].cooldown])
 	for i in range(ids.size()):
-		var cd: float = maxf(sim.gcd,sim.cooldowns[ids[i]])
+		var cd: float = sim.auto_timer if i == 0 else (sim.cooldowns.charge if i == 2 else maxf(sim.gcd,sim.cooldowns[ids[i]]))
 		buttons[i].text = "%s  %s%s\n%s" % ["AUTO" if i == 0 else str(i+1),(Combat.REWARDS[ids[i]].name if ids[i] in Combat.REWARDS else ids[i].capitalize()),("  %.1fs"%cd) if cd>0 else "",descriptions[i]]
-		buttons[i].disabled = paused or (cd>0 and not (sim.auto_target != -1 and i>0 and sim.cooldowns[ids[i]]<=0)) or sim.outcome != "" or sim.momentum<Combat.ABILITIES[ids[i]].cost
+		buttons[i].disabled = paused or (cd>0 and not (sim.auto_target != -1 and i>0 and i!=2 and sim.cooldowns[ids[i]]<=0)) or sim.outcome != "" or sim.momentum<Combat.ABILITIES[ids[i]].cost

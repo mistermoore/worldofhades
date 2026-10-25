@@ -10,6 +10,7 @@ case "${1:-test}" in
     godot --headless --path . --script tests/combat_test.gd
     godot --headless --path . --script tests/movement_test.gd
     godot --headless --path . --script tests/rewards_test.gd
+    godot --headless --path . --script tests/tactics_test.gd
     ;;
   build) godot --headless --path . --export-debug Web build/web/index.html ;;
   serve) python3 -m http.server 8000 --bind 0.0.0.0 --directory build/web ;;

@@ -19,7 +19,7 @@ func run():
 	check(s.outcome == "ENCOUNTER CLEARED","victory opens rewards")
 	check(not s.choose_reward("unknown"),"unknown reward rejected")
 	check(s.choose_reward("mend") and s.encounter == 2,"reward starts second encounter")
-	check(s.enemies[0].max_hp == 187.5 and s.momentum == 30,"second encounter scales health and grants starting Momentum")
+	check(s.enemies[0].max_hp == 375 and s.momentum == 30,"second encounter scales health and grants starting Momentum")
 	check(not s.choose_reward("lightning"),"only one reward can be chosen")
 	s.health = 100
 	check(s.use_ability("mend") and s.health == 145 and s.momentum == 10,"self heal restores health and spends Momentum")
