@@ -29,6 +29,8 @@ var markers: Array = []
 var ring: MeshInstance3D
 var flash := 0.0
 var clock := 0.0
+var click_candidate := false
+var click_distance := 0.0
 var reward_panel: PanelContainer
 var reward_bar: HBoxContainer
 var effects: Array = []
@@ -148,6 +150,19 @@ func _ready():
 		label.position.y = 2.7
 		label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 		foe.add_child(label)
+		var target_area = Area3D.new()
+		target_area.name = "TargetArea"
+		target_area.collision_layer = 1
+		target_area.collision_mask = 0
+		target_area.set_meta("enemy_index",foes.size()-1)
+		var collision = CollisionShape3D.new()
+		var capsule = CapsuleShape3D.new()
+		capsule.radius = 0.6
+		capsule.height = 2.1
+		collision.shape = capsule
+		collision.position.y = 1.05
+		target_area.add_child(collision)
+		foe.add_child(target_area)
 		markers.append(telegraph(e.kind))
 		var orb = MeshInstance3D.new()
 		var sphere = SphereMesh.new()
@@ -306,6 +321,7 @@ func _ready():
 
 
 func reset():
+	click_candidate = false
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	sim = Combat.new()
 	paused = true
@@ -369,6 +385,7 @@ func lightning(start: Vector2, finish: Vector2):
 		previous = next
 
 func toggle_pause():
+	click_candidate = false
 	if sim.outcome != "": return
 	paused = not paused
 	if paused: Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -423,7 +440,25 @@ func floating_text(pos: Vector2, text: String, color: Color, height: float = 2.4
 	transient.append({"node":label,"remaining":1.2})
 
 
+func pick_enemy(screen_position: Vector2):
+	if paused or sim.outcome != "": return
+	var origin = camera.project_ray_origin(screen_position)
+	var query = PhysicsRayQueryParameters3D.create(origin,origin+camera.project_ray_normal(screen_position)*100,1)
+	query.collide_with_areas = true
+	query.collide_with_bodies = false
+	var hit = get_world_3d().direct_space_state.intersect_ray(query)
+	if hit.is_empty(): return
+	var index: int = hit.collider.get_meta("enemy_index",-1)
+	if index >= 0 and sim.enemies[index].hp > 0:
+		sim.target = index
+		sim.message = "Target: %s. Strike is automatic in melee range." % sim.enemies[index].name
+
 func _input(event):
+	if event is InputEventMouseButton and event.pressed:
+		if event.button_index in [MOUSE_BUTTON_LEFT,MOUSE_BUTTON_RIGHT]: click_candidate = false
+	if event is InputEventMouseMotion and click_candidate:
+		click_distance += event.relative.length()
+		if click_distance > 7: click_candidate = false
 	# Pause must work even while a mouse press has a HUD control focused.
 	if event is InputEventKey and event.pressed and not event.echo and event.keycode in [KEY_SPACE,KEY_P,KEY_ESCAPE]:
 		toggle_pause()
@@ -434,10 +469,18 @@ func _input(event):
 
 func _notification(what):
 	if what == NOTIFICATION_APPLICATION_FOCUS_OUT:
+		click_candidate = false
 		paused = true
 		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
 func _unhandled_input(event):
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		if event.pressed:
+			click_candidate = not Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT)
+			click_distance = 0
+		else:
+			if click_candidate and not Input.is_mouse_button_pressed(MOUSE_BUTTON_RIGHT): pick_enemy(event.position)
+			click_candidate = false
 	if event is InputEventMouseButton and event.pressed:
 		if event.button_index == MOUSE_BUTTON_RIGHT and not paused and sim.outcome == "":
 			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
@@ -541,6 +584,7 @@ func _process(dt):
 		cast_orbs[i].position = Vector3(e.aim.x,0.7,e.aim.y)
 		cast_orbs[i].scale = Vector3.ONE*(0.7+0.25*sin(clock*8))
 		foe.visible = e.hp > 0
+		foe.get_node("TargetArea").collision_layer = 1 if e.hp > 0 else 0
 		foe.position = Vector3(e.pos.x,0,e.pos.y)
 		var direction: Vector2 = sim.player-e.pos
 		if e.cast > 0 and e.kind == "bruiser": direction = e.aim
@@ -587,7 +631,7 @@ func _process(dt):
 	intro.visible = paused and sim.outcome == ""
 	status.visible = not paused
 	warning.visible = not paused and sim.outcome == ""
-	intro_text.text = "THE ASHEN PROVING GROUNDS\n\nW/S: forward/back. Q/E: strafe. A/D: turn.\nHold both mouse buttons to run and steer.\nRight-drag looks. Scroll zooms. C resets view.\n\nTab selects a target. 3 charges into melee range.\nStrike attacks automatically when your target is in melee range.\nUse 2 to spend Momentum on Cleave.\nEat the small hits. Interrupt or move for HEAVY attacks.\n\nEnemies join gradually. P pauses whenever you need."
+	intro_text.text = "THE ASHEN PROVING GROUNDS\n\nW/S: forward/back. Q/E: strafe. A/D: turn.\nHold both mouse buttons to run and steer.\nRight-drag looks. Scroll zooms. C resets view.\n\nClick an enemy or press Tab to target. 3 charges into melee range.\nStrike attacks automatically when your target is in melee range.\nUse 2 to spend Momentum on Cleave.\nEat the small hits. Interrupt or move for HEAVY attacks.\n\nEnemies join gradually. P pauses whenever you need."
 	if started: intro_text.text = "PAUSED\n\nTake a breath. Nothing moves while paused.\n\nAutomatic Strike builds Momentum. 2: Cleave spends it.\n3: Charge interrupts, even during power cooldowns.\n\nW/S move   /   Q/E strafe   /   A/D turn\nScroll zoom   /   C resets view"
 	if sim.reward != "" and not started: intro_text.text = "TRIAL 2 - REWARD UNLOCKED\n\n4: "+Combat.REWARDS[sim.reward].name+"\n"+Combat.REWARDS[sim.reward].description+"\n\nYour reward uses Momentum from Strikes.\nEnemies have 25% more health this time.\n\nSpace begins. P pauses. R starts a fresh run."
 	start_button.text = "Space  -  Resume" if started else "Space  -  Begin encounter"

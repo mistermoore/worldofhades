@@ -62,3 +62,7 @@ Validation for the reward milestone: 29 combat + 12 movement + 35 reward checks 
 ## Tactical iteration
 
 The latest pass separates basic chip damage from infrequent heavy mechanics and prevents overlapping special casts. Basic hits are affordable pressure, not dodge failures. Automatic attacks no longer compete with manual powers for the shared cooldown; Charge can interrupt immediately. Enemies have more health so the encounter lasts long enough for these decisions to happen. Reward branches now provide short-term Guard, lightning primers/area detonations, or bleed/rupture finishers. See PLAYTEST.md for measured scenarios and human playtest goals.
+
+## Click targeting
+
+Left-clicking an enemy body selects it with a camera ray query against dedicated enemy hit areas. Tab remains available. Dead enemies are excluded; empty clicks preserve the target. Selection happens on a short click release, with mouse drags and right-button steering canceling the pending click. HUD button clicks do not initiate world selection. Target changes use the same simulation setter as Tab, so automatic Strike follows the new target. Headless tests cover picking, empty/dead/paused cases and gesture cancellation; `node tests/click_targeting.cjs` checks selection and steering in Chromium.
