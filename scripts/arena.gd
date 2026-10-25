@@ -26,6 +26,11 @@ var markers: Array = []
 var ring: MeshInstance3D
 var flash := 0.0
 var clock := 0.0
+var reward_panel: PanelContainer
+var reward_bar: HBoxContainer
+var effects: Array = []
+var cast_orbs: Array = []
+var healing_beams: Array = []
 
 func material(color: Color, glow: bool = false) -> StandardMaterial3D:
 	var m = StandardMaterial3D.new()
@@ -141,6 +146,15 @@ func _ready():
 		label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 		foe.add_child(label)
 		markers.append(telegraph(e.kind))
+		var orb = MeshInstance3D.new()
+		var sphere = SphereMesh.new()
+		sphere.radius = 0.3
+		sphere.height = 0.6
+		orb.mesh = sphere
+		orb.material_override = material(Color("ff9a45"),true)
+		add_child(orb)
+		cast_orbs.append(orb)
+	for i in range(3): healing_beams.append(make_beam(Color("6ce6a4"),0.045))
 	ring = circle(0.85,Color("e5c477"))
 	camera = Camera3D.new()
 	camera.fov = 70
@@ -164,6 +178,7 @@ func _ready():
 	status.add_theme_font_size_override("font_size",18)
 	canvas.add_child(status)
 	var bar = HBoxContainer.new()
+	reward_bar = bar
 	bar.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
 	bar.position = Vector2(-310, -115)
 	bar.add_theme_constant_override("separation",12)
@@ -176,9 +191,17 @@ func _ready():
 			if not paused: sim.request_ability(id))
 		bar.add_child(b)
 		buttons.append(b)
+	var fourth = Button.new()
+	fourth.custom_minimum_size = Vector2(195,75)
+	fourth.focus_mode = Control.FOCUS_NONE
+	fourth.visible = false
+	fourth.pressed.connect(func():
+		if not paused and sim.reward != "": sim.request_ability(sim.reward))
+	bar.add_child(fourth)
+	buttons.append(fourth)
 	var restart = Button.new()
 	restart.focus_mode = Control.FOCUS_NONE
-	restart.text = "R  ·  Restart encounter"
+	restart.text = "R  ·  Restart run"
 	restart.position = Vector2(1060,20)
 	restart.pressed.connect(reset)
 	canvas.add_child(restart)
@@ -227,6 +250,32 @@ func _ready():
 	start_button.pressed.connect(toggle_pause)
 	content.add_child(start_button)
 	canvas.add_child(intro)
+	reward_panel = PanelContainer.new()
+	reward_panel.add_theme_stylebox_override("panel",intro_style)
+	reward_panel.set_anchors_and_offsets_preset(Control.PRESET_CENTER)
+	reward_panel.position = Vector2(-460,-130)
+	reward_panel.custom_minimum_size = Vector2(920,260)
+	var rewards_content = VBoxContainer.new()
+	rewards_content.add_theme_constant_override("separation",18)
+	reward_panel.add_child(rewards_content)
+	var reward_title = Label.new()
+	reward_title.text = "ENCOUNTER CLEARED - CHOOSE YOUR REWARD\nUnlock an ability on 4 for the next encounter. Recover 40 health."
+	reward_title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	reward_title.add_theme_font_size_override("font_size",22)
+	rewards_content.add_child(reward_title)
+	var choices = HBoxContainer.new()
+	choices.alignment = BoxContainer.ALIGNMENT_CENTER
+	choices.add_theme_constant_override("separation",12)
+	rewards_content.add_child(choices)
+	for id in Combat.REWARDS:
+		var choice = Button.new()
+		choice.text = Combat.REWARDS[id].name+"\n\n"+Combat.REWARDS[id].description+"\n\nChoose reward"
+		choice.custom_minimum_size = Vector2(290,180)
+		choice.focus_mode = Control.FOCUS_NONE
+		choice.pressed.connect(func(): select_reward(id))
+		choices.add_child(choice)
+	canvas.add_child(reward_panel)
+	reward_panel.visible = false
 	var you = Label3D.new()
 	you.text = "YOU"
 	you.position.y = 2.3
@@ -249,11 +298,55 @@ func reset():
 	damage_flash = 0
 	for item in transient: item.node.queue_free()
 	transient.clear()
+	for effect in effects: effect.node.queue_free()
+	effects.clear()
 	for actor in [hero]+foes:
 		var sword = actor.get_node("SwordPivot")
 		sword.rotation = Vector3.ZERO
 		if sword.has_meta("swing_time"): sword.remove_meta("swing_time")
 		actor.set_meta("last_cast",0.0)
+
+func select_reward(id: String):
+	if not sim.choose_reward(id): return
+	paused = true
+	started = false
+	yaw = 0
+	for foe in foes: foe.set_meta("last_cast",0.0)
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+func make_beam(color: Color, radius: float) -> MeshInstance3D:
+	var beam = MeshInstance3D.new()
+	var cylinder = CylinderMesh.new()
+	cylinder.top_radius = radius
+	cylinder.bottom_radius = radius
+	cylinder.height = 1
+	beam.mesh = cylinder
+	beam.material_override = material(color,true)
+	add_child(beam)
+	return beam
+
+func place_beam(beam: MeshInstance3D, start: Vector3, finish: Vector3):
+	var delta = finish-start
+	beam.position = (start+finish)*0.5
+	beam.scale.y = maxf(0.001,delta.length())
+	if delta.length() > 0.001: beam.quaternion = Quaternion(Vector3.UP,delta.normalized())
+
+func pulse(pos: Vector2, color: Color, duration: float = 0.5):
+	var effect = circle(0.8,color)
+	effect.position = Vector3(pos.x,0.2,pos.y)
+	effects.append({"node":effect,"remaining":duration,"duration":duration,"pulse":true})
+
+func lightning(start: Vector2, finish: Vector2):
+	var previous = Vector3(start.x,1.3,start.y)
+	var end = Vector3(finish.x,1.3,finish.y)
+	var origin = previous
+	for i in range(1,7):
+		var next = origin.lerp(end,float(i)/6)
+		if i < 6: next += Vector3(0.25 if i%2 else -0.25,0.15 if i%2 else -0.15,0)
+		var beam = make_beam(Color("8cdcff"),0.055)
+		place_beam(beam,previous,next)
+		effects.append({"node":beam,"remaining":0.35,"duration":0.35,"pulse":false})
+		previous = next
 
 func toggle_pause():
 	if sim.outcome != "": return
@@ -347,6 +440,7 @@ func _unhandled_input(event):
 					else: sim.use_ability("strike")
 			KEY_2: if not paused: sim.request_ability("cleave")
 			KEY_3: if not paused: sim.request_ability("charge")
+			KEY_4: if not paused and sim.reward != "": sim.request_ability(sim.reward)
 			KEY_R: reset()
 			KEY_C: yaw = 0; pitch = 0.35; distance = 7.5
 
@@ -366,15 +460,22 @@ func _process(dt):
 	sim.facing = Vector2(0,-1).rotated(-yaw)
 	for event in sim.events:
 		match event.kind:
-			"enemy_hit": floating_text(event.pos,"-%d"%event.amount,Color("ffe0a4"))
+			"enemy_hit": floating_text(event.pos,"-%d"%event.amount,Color("ff8276") if event.get("source","") == "bleed" else Color("ffe0a4"))
 			"player_hit":
 				damage_flash = 0.5
 				floating_text(event.pos,"-%d HP"%event.amount,Color("ff8276"))
 			"recovery": floating_text(event.pos,"+%d HP"%event.amount,Color("7aefb6"))
 			"enemy_heal": floating_text(event.pos,"+%d"%event.amount,Color("7aefb6"))
-			"strike", "cleave", "charge":
+			"mend": pulse(event.pos,Color("69e8ac"))
+			"lightning": lightning(event.pos,event.target_pos)
+			"interrupt":
+				floating_text(event.pos,"INTERRUPTED!",Color("97e7ff"))
+				pulse(event.pos,Color("97e7ff"))
+			"enemy_cast":
+				pulse(event.aim if event.enemy_kind == "caster" else event.pos,Color("ff944c") if event.enemy_kind != "support" else Color("6ce6a4"))
+			"strike", "cleave", "charge", "rend":
 				flash = 0.2
-				swing_sword(hero,event.kind == "cleave")
+				swing_sword(hero,event.kind in ["cleave","rend"])
 	for item in transient:
 		item.remaining -= dt
 		item.node.position.y += dt*0.8
@@ -383,6 +484,13 @@ func _process(dt):
 		if transient[i].remaining <= 0:
 			transient[i].node.queue_free()
 			transient.remove_at(i)
+	for effect in effects:
+		if not paused: effect.remaining -= dt
+		if effect.pulse: effect.node.scale = Vector3.ONE*(1+(1-effect.remaining/effect.duration)*3)
+	for i in range(effects.size()-1,-1,-1):
+		if effects[i].remaining <= 0:
+			effects[i].node.queue_free()
+			effects.remove_at(i)
 	damage_flash = maxf(0,damage_flash-dt)
 	damage_overlay.color = Color(0.8,0.05,0.02,damage_flash*0.35)
 	sim.events.clear()
@@ -396,6 +504,10 @@ func _process(dt):
 			swing_sword(foe,true)
 		foe.set_meta("last_cast",e.cast)
 		if not paused: animate_sword(foe,dt)
+		if e.kind == "bruiser" and e.cast > 0: foe.get_node("SwordPivot").rotation.x = 0.8
+		cast_orbs[i].visible = e.hp > 0 and e.cast > 0 and e.kind == "caster"
+		cast_orbs[i].position = Vector3(e.aim.x,0.7,e.aim.y)
+		cast_orbs[i].scale = Vector3.ONE*(0.7+0.25*sin(clock*8))
 		foe.visible = e.hp > 0
 		foe.position = Vector3(e.pos.x,0,e.pos.y)
 		var direction: Vector2 = sim.player-e.pos
@@ -404,12 +516,19 @@ func _process(dt):
 		var label: Label3D = foe.get_child(3)
 		var cast_name = {"bruiser":"FRONTAL SWING - move behind", "caster":"GROUND BLAST - leave the circle", "support":"HEALING ALLIES - interrupt with 3"}[e.kind]
 		var state = ("%s  %.1fs"%[cast_name,e.cast]) if e.cast>0 else ("INTERRUPTED" if e.interrupted>0 else ("WATCHING" if sim.elapsed<e.active_at else e.kind.to_upper()))
+		if e.vulnerable > 0: state = "EXPOSED +25% DAMAGE %.1fs"%e.vulnerable
+		if e.bleed > 0: state += "  / BLEED %.1fs"%e.bleed
 		label.text = "%s  %d/%d\n%s" % [e.name,e.hp,e.max_hp,state]
 		markers[i].visible = e.hp > 0 and e.cast > 0
 		var pos: Vector2 = e.aim if e.kind == "caster" else e.pos
 		markers[i].position = Vector3(pos.x,0.12,pos.y)
 		markers[i].rotation.y = atan2(-e.aim.x,-e.aim.y) if e.kind == "bruiser" else 0.0
 		markers[i].material_override.albedo_color.a = 0.35+0.18*(0.5+0.5*sin(clock*8))
+	var healer = sim.enemies[2]
+	for i in range(healing_beams.size()):
+		var ally = sim.enemies[i]
+		healing_beams[i].visible = healer.hp > 0 and healer.cast > 0 and ally.hp > 0 and i != 2
+		place_beam(healing_beams[i],Vector3(healer.pos.x,1.2,healer.pos.y),Vector3(ally.pos.x,1.0,ally.pos.y))
 	var target = sim.enemies[sim.target]
 	ring.visible = target.hp > 0
 	ring.position = Vector3(target.pos.x,0.15,target.pos.y)
@@ -428,20 +547,28 @@ func _process(dt):
 			warning.text = ("MOVE OUT OF THE CONE" if e.kind == "bruiser" else "MOVE OUT OF THE CIRCLE")+"  -  %.1fs"%e.cast
 			break
 		if e.kind == "support": warning.text = "Acolyte is healing - Tab to target, then 3 to interrupt"
+	reward_panel.visible = sim.outcome == "ENCOUNTER CLEARED" and sim.encounter == 1
 	intro.visible = paused and sim.outcome == ""
 	status.visible = not paused
-	warning.visible = not paused
+	warning.visible = not paused and sim.outcome == ""
 	intro_text.text = "THE ASHEN PROVING GROUNDS\n\nW/S: forward/back. Q/E: strafe. A/D: turn.\nHold both mouse buttons to run and steer.\nRight-drag looks. Scroll zooms. C resets view.\n\nTab selects a target. 3 charges into melee range.\n1: Strike. Shift+1: toggle auto-Strike on this target.\nUse 2 to spend Momentum on Cleave.\nLeave red danger zones before the countdown ends.\n\nEnemies join gradually. P pauses whenever you need."
 	if started: intro_text.text = "PAUSED\n\nTake a breath. Nothing moves while paused.\n\n1: Strike builds Momentum   /   2: Cleave spends it\n3: Charge closes distance and interrupts\n\nW/S move   /   Q/E strafe   /   A/D turn\nScroll zoom   /   C resets view"
+	if sim.reward != "" and not started: intro_text.text = "TRIAL 2 - REWARD UNLOCKED\n\n4: "+Combat.REWARDS[sim.reward].name+"\n"+Combat.REWARDS[sim.reward].description+"\n\nYour reward uses Momentum from Strikes.\nEnemies have 25% more health this time.\n\nSpace begins. P pauses. R starts a fresh run."
 	start_button.text = "Space  -  Resume" if started else "Space  -  Begin encounter"
-	hud.text = "WORLD OF HADES   /   THE ASHEN PROVING GROUNDS\nHealth %d / 160     •     Momentum %d / 100     •     Enemies %d / 3" % [sim.health,sim.momentum,sim.alive().size()]
+	hud.text = "WORLD OF HADES   /   TRIAL %d OF 2\nHealth %d / 160     •     Momentum %d / 100     •     Enemies %d / 3" % [sim.encounter,sim.health,sim.momentum,sim.alive().size()]
 	var auto_status = "Auto-attack OFF  |  Shift+1: enable on selected target"
 	if sim.auto_target != -1:
 		auto_status = "Auto-attack ON: %s%s" % [target.name," - move into melee range" if sim.player.distance_to(target.pos)>2.8 else ""]
-	status.text = auto_status+"\n"+(sim.outcome+"  ·  Press R to try again" if sim.outcome != "" else sim.message)+"\nW/S move   ·   Q/E strafe   ·   A/D turn   ·   Both mouse: run + steer   ·   Scroll: zoom   ·   P: pause   ·   1–3: abilities"
+	status.text = auto_status+"\n"+(sim.outcome+"  ·  Press R to try again" if sim.outcome != "" else sim.message)+"\nW/S move   ·   Q/E strafe   ·   A/D turn   ·   Both mouse: run + steer   ·   Scroll: zoom   ·   P: pause   ·   1–4: abilities"
 	var ids = ["strike","cleave","charge"]
 	var descriptions = ["Shift+1: auto on/off","30 Momentum · frontal cone","13m · interrupt · 8s cooldown"]
-	for i in range(3):
+	buttons[3].visible = sim.reward != ""
+	reward_bar.size.x = reward_bar.get_combined_minimum_size().x
+	reward_bar.position.x = (get_viewport().get_visible_rect().size.x-reward_bar.size.x)*0.5
+	if sim.reward != "":
+		ids.append(sim.reward)
+		descriptions.append("%d Momentum / %.0fs"%[Combat.ABILITIES[sim.reward].cost,Combat.ABILITIES[sim.reward].cooldown])
+	for i in range(ids.size()):
 		var cd: float = maxf(sim.gcd,sim.cooldowns[ids[i]])
-		buttons[i].text = "%d  %s%s\n%s" % [i+1,ids[i].capitalize(),("  %.1fs"%cd) if cd>0 else "",descriptions[i]]
-		buttons[i].disabled = paused or (cd>0 and not (sim.auto_target != -1 and i>0 and sim.cooldowns[ids[i]]<=0)) or sim.outcome != "" or (i==1 and sim.momentum<30)
+		buttons[i].text = "%d  %s%s\n%s" % [i+1,(Combat.REWARDS[ids[i]].name if ids[i] in Combat.REWARDS else ids[i].capitalize()),("  %.1fs"%cd) if cd>0 else "",descriptions[i]]
+		buttons[i].disabled = paused or (cd>0 and not (sim.auto_target != -1 and i>0 and sim.cooldowns[ids[i]]<=0)) or sim.outcome != "" or sim.momentum<Combat.ABILITIES[ids[i]].cost

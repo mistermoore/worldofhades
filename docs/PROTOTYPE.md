@@ -48,3 +48,13 @@ GitHub Pages exports commit-specific JS, WASM and PCK filenames (`game-<sha>.*`)
 ## Placeholder sword animation
 
 Swords pivot at the grip through a short windup, downward slice, and recovery. Player Strike (including auto-Strike), Cleave, and Charge trigger the visual; Cleave has a longer swing. The Ashguard swings when its frontal attack resolves. Animation is presentation-only and does not change damage timing, range, or cooldowns. Pause freezes sword motion; restart returns weapons to rest.
+
+## Two-encounter reward prototype
+
+The first victory offers three mutually exclusive active abilities: Second Wind (self-heal), Lightning Bolt (ranged magic damage), or Rending Slash (physical hit with a non-stacking five-second bleed). The selected ability occupies key 4 and uses the Melee archetype's Momentum. It persists into a second encounter, which has 25% more enemy health. Selection restores up to 40 health, grants 30 Momentum, and resets cooldowns. The second victory completes the run; restart returns to Trial 1 with no reward.
+
+The presentation adds healing pulses, a lightning bolt, bleed ticks/status, enemy healing beams and a blast orb/pulse. The bruiser raises its sword during its cast. Charge interrupts open a three-second +25% damage window, with a burst and EXPOSED status. Damage still resolves in the simulation independently of visual effects. These are initial playtest numbers.
+
+Reward tests exercise unlock rules, resources, cooldowns, range, heal capping, bleed expiry/kills, interrupt vulnerability, all three reward buttons, slot 4 activation, and restart. The browser reward-screen check uses an isolated temporary copy that starts at victory; the shipped game has no victory shortcut.
+
+Validation for the reward milestone: 29 combat + 12 movement + 35 reward checks passed (76 total). An isolated browser fixture verified all three reward cards, selection into Trial 2, and casting Lightning with key 4, with no runtime errors. Human playtesting is still needed for reward balance and encounter feel.

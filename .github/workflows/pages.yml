@@ -35,6 +35,7 @@ jobs:
           godot --headless --path . --import --editor --quit
           godot --headless --path . --script tests/combat_test.gd
           godot --headless --path . --script tests/movement_test.gd
+          godot --headless --path . --script tests/rewards_test.gd
           mkdir -p build/web
           version="${GITHUB_SHA::7}"
           godot --headless --path . --export-release Web "build/web/game-$version.html"
